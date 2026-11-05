@@ -1,4 +1,4 @@
-// app/api/stripe/create-checkout/route.ts
+// app/api/checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createCheckout } from '@/server/actions/checkout';
 

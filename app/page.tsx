@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { ProductGrid } from '@/components/product-grid';
 import { ProductCard } from '@/components/product-card';
 import { ProductGridSkeleton } from '@/components/product-grid-skeleton';
-import { NewsletterForm } from '@/components/newsletter-form';
 import { getFeaturedProducts, getNewProducts } from '@/server/queries/products';
 import { Metadata } from 'next';
 
@@ -171,22 +170,6 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Newsletter */}
-      <section className="bg-gray-900 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Stay Updated
-            </h2>
-            <p className="mt-4 text-lg text-gray-300">
-              Subscribe to our newsletter for exclusive deals and new product
-              alerts
-            </p>
-            <NewsletterForm />
           </div>
         </div>
       </section>

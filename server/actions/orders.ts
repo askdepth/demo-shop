@@ -92,10 +92,10 @@ export async function getSavedAddressForCurrentUser() {
 
 // Order confirmation is reachable right after guest checkout (no session
 // yet) and by the signed-in owner. Access is proven either by knowing the
-// Stripe session id from the redirect, or by owning the order.
+// confirmation token from the redirect, or by owning the order.
 export async function getOrderForConfirmation(
   orderId: string,
-  sessionId?: string
+  token?: string
 ) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -112,10 +112,10 @@ export async function getOrderForConfirmation(
 
   const user = await getCurrentUser();
   const ownsOrder = user && order.userId === user.id;
-  const provedBySession =
-    !!sessionId && !!order.stripeSessionId && sessionId === order.stripeSessionId;
+  const provedByToken =
+    !!token && !!order.confirmationToken && token === order.confirmationToken;
 
-  if (!ownsOrder && !provedBySession) return null;
+  if (!ownsOrder && !provedByToken) return null;
 
   return order;
 }

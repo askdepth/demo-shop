@@ -9,7 +9,6 @@ import {
   updateCategorySchema,
 } from '@/lib/validators';
 import { requirePermission, PERMISSIONS, requireAdmin } from '@/lib/roles';
-import { sendOrderConfirmation } from '@/lib/emails';
 
 // Order Management
 export async function updateOrderStatus(orderId: string, formData: FormData) {
@@ -42,30 +41,6 @@ export async function updateOrderStatus(orderId: string, formData: FormData) {
         },
       },
     });
-
-    // Send email notification for certain status changes
-    if (['SHIPPED', 'DELIVERED'].includes(validatedData.status)) {
-      await sendOrderConfirmation({
-        orderId: order.id,
-        customerName: order.shippingName,
-        customerEmail: order.customerEmail,
-        orderTotal: Number(order.total),
-        items: order.orderItems.map(item => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          price: Number(item.price),
-          image: item.product.images[0],
-        })),
-        shippingAddress: {
-          name: order.shippingName,
-          address: order.shippingAddress,
-          city: order.shippingCity,
-          state: order.shippingState || '',
-          zip: order.shippingZip || '',
-          country: order.shippingCountry || '',
-        },
-      });
-    }
 
     revalidateTag('orders', 'max');
 

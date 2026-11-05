@@ -252,93 +252,8 @@ async function main() {
       },
     });
 
-    // Create product variants for some products
-    if (product.slug === 'iphone-15-pro') {
-      await prisma.productVariant.createMany({
-        data: [
-          {
-            productId: product.id,
-            name: 'Storage',
-            value: '128GB',
-            position: 0,
-          },
-          {
-            productId: product.id,
-            name: 'Storage',
-            value: '256GB',
-            price: 100,
-            position: 1,
-          },
-          {
-            productId: product.id,
-            name: 'Storage',
-            value: '512GB',
-            price: 300,
-            position: 2,
-          },
-          {
-            productId: product.id,
-            name: 'Color',
-            value: 'Natural Titanium',
-            position: 0,
-          },
-          {
-            productId: product.id,
-            name: 'Color',
-            value: 'Blue Titanium',
-            position: 1,
-          },
-          {
-            productId: product.id,
-            name: 'Color',
-            value: 'White Titanium',
-            position: 2,
-          },
-        ],
-      });
-    }
-
-    if (product.slug === 'premium-cotton-tshirt') {
-      await prisma.productVariant.createMany({
-        data: [
-          { productId: product.id, name: 'Size', value: 'S', position: 0 },
-          { productId: product.id, name: 'Size', value: 'M', position: 1 },
-          { productId: product.id, name: 'Size', value: 'L', position: 2 },
-          {
-            productId: product.id,
-            name: 'Size',
-            value: 'XL',
-            price: 5,
-            position: 3,
-          },
-          { productId: product.id, name: 'Color', value: 'Blue', position: 0 },
-          { productId: product.id, name: 'Color', value: 'Black', position: 1 },
-          { productId: product.id, name: 'Color', value: 'White', position: 2 },
-        ],
-      });
-    }
-
     console.log(`📦 Created product: ${product.name}`);
   }
-
-  // Create sample reviews
-  const reviewProducts = await prisma.product.findMany({ take: 3 });
-
-  for (const product of reviewProducts) {
-    await prisma.review.create({
-      data: {
-        rating: 5,
-        title: 'Excellent product!',
-        content:
-          'Really happy with this purchase. Great quality and fast shipping.',
-        verified: true,
-        userId: customer.id,
-        productId: product.id,
-      },
-    });
-  }
-
-  console.log('⭐ Created sample reviews');
 
   // Create sample cart items
   const customerCart = await prisma.cart.upsert({
@@ -406,7 +321,6 @@ async function main() {
   console.log(`📂 Categories: ${await prisma.category.count()}`);
   console.log(`📦 Products: ${await prisma.product.count()}`);
   console.log(`📋 Orders: ${await prisma.order.count()}`);
-  console.log(`⭐ Reviews: ${await prisma.review.count()}`);
   console.log('\n🔐 Admin Login:');
   console.log(`Email: ${adminEmail}`);
   console.log('Password: admin123');

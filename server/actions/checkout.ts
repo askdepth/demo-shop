@@ -2,8 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { stripe, createCheckoutSession } from '@/lib/stripe';
-import { sendOrderConfirmation } from '@/lib/emails';
+import { randomUUID } from 'crypto';
 import { checkoutSchema } from '@/lib/validators';
 import { getCurrentUser } from '@/lib/roles';
 import { revalidateTag } from 'next/cache';
@@ -77,12 +76,15 @@ export async function createCheckout(formData: FormData) {
     );
     const total = subtotal + shippingCost + tax;
 
+    const confirmationToken = randomUUID();
+
     // Create pending order
     const order = await prisma.order.create({
       data: {
         orderNumber: `ORD-${Date.now()}`,
         userId: user?.id,
         status: 'PENDING',
+        confirmationToken,
         subtotal: Number(subtotal),
         shipping: Number(shippingCost),
         tax: Number(tax),
@@ -116,189 +118,54 @@ export async function createCheckout(formData: FormData) {
           })),
         },
       },
-      include: {
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                name: true,
-                images: true,
-              },
-            },
-          },
-        },
-      },
     });
 
-    // Create Stripe checkout session
-    const lineItems = order.orderItems.map(item => ({
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: item.product.name,
-          images: item.product.images.slice(0, 1).map(img => img.url),
-        },
-        unit_amount: Math.round(Number(item.price) * 100),
-      },
-      quantity: item.quantity,
-    }));
-
-    // Add shipping as line item
-    if (shippingCost > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `Shipping (${validatedData.shippingMethod})`,
-            images: [],
-          },
-          unit_amount: Math.round(Number(shippingCost) * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    // Add tax as line item
-    if (tax > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: 'Tax',
-            images: [],
-          },
-          unit_amount: Math.round(Number(tax) * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    const session = await createCheckoutSession({
-      items: lineItems,
-      customer_email: validatedData.customerInfo.email,
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/stripe/confirm?session_id={CHECKOUT_SESSION_ID}&orderId=${order.id}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cart`,
-      metadata: {
-        orderId: order.id,
-      },
-    });
-
-    // Update order with Stripe session ID
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { stripeSessionId: session.id },
-    });
-
-    revalidateTag('orders', 'max');
-
-    return { success: true, sessionId: session.id, url: session.url };
-  } catch (error) {
-    console.error('Create checkout error:', error);
-    return { success: false, error: 'Failed to create checkout session' };
-  }
-}
-
-export async function processSuccessfulPayment(sessionId: string) {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['payment_intent'],
-    });
-
-    if (!session.metadata?.orderId) {
-      throw new Error('Order ID not found in session metadata');
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { id: session.metadata.orderId },
-      include: {
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                images: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!order) {
-      throw new Error('Order not found');
-    }
-
-    // Idempotent: the confirm route can be hit more than once for the same
-    // session (retries, duplicate redirects). Only run the side effects below
-    // the first time, when the order is still awaiting payment confirmation.
-    if (order.status !== 'PENDING') {
-      return { success: true, order };
-    }
-
-    // Update order status and payment info
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'PROCESSING',
-        stripePaymentIntentId:
-          typeof session.payment_intent === 'string'
-            ? session.payment_intent
-            : session.payment_intent?.id,
-        paidAt: new Date(),
-      },
-    });
-
-    // Update product inventory
-    for (const item of order.orderItems) {
-      const inventory = await prisma.inventory.findUnique({
-        where: { productId: item.productId },
-      });
-
-      if (inventory) {
-        await prisma.inventory.update({
-          where: { productId: item.productId },
-          data: {
-            available: Math.max(0, inventory.available - item.quantity),
-            reserved: inventory.reserved + item.quantity,
-          },
-        });
-      }
-    }
-
-    // Clear user's cart
-    await clearCart();
-
-    // Send confirmation email
-    await sendOrderConfirmation({
-      orderId: order.id,
-      customerName: order.shippingName,
-      customerEmail: order.customerEmail,
-      orderTotal: Number(order.total),
-      items: order.orderItems.map(item => ({
-        name: item.product.name,
-        quantity: item.quantity,
-        price: Number(item.price),
-        image: item.product.images[0],
-      })),
-      shippingAddress: {
-        name: order.shippingName,
-        address: order.shippingAddress,
-        city: order.shippingCity,
-        state: order.shippingState || '',
-        zip: order.shippingZip || '',
-        country: order.shippingCountry || '',
-      },
-    });
+    // Fake checkout: no payment provider. The order is finalized right away.
+    await finalizeOrder(order.id);
 
     revalidateTag('orders', 'max');
     revalidateTag('products', 'max');
 
-    return { success: true, order };
+    return {
+      success: true,
+      orderId: order.id,
+      url: `/orders/${order.id}/success?token=${confirmationToken}`,
+    };
   } catch (error) {
-    console.error('Process successful payment error:', error);
-    return { success: false, error: 'Failed to process payment' };
+    console.error('Create checkout error:', error);
+    return { success: false, error: 'Failed to place order' };
   }
+}
+
+async function finalizeOrder(orderId: string) {
+  const order = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { orderItems: true },
+  });
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { status: 'PROCESSING', paidAt: new Date() },
+  });
+
+  // Update product inventory
+  for (const item of order.orderItems) {
+    const inventory = await prisma.inventory.findUnique({
+      where: { productId: item.productId },
+    });
+
+    if (inventory) {
+      await prisma.inventory.update({
+        where: { productId: item.productId },
+        data: {
+          available: Math.max(0, inventory.available - item.quantity),
+          reserved: inventory.reserved + item.quantity,
+        },
+      });
+    }
+  }
+
+  await clearCart();
 }
 
 export async function calculateShippingCost(

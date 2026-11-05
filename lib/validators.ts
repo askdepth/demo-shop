@@ -222,16 +222,6 @@ export const fileUploadSchema = z.object({
   generateVariants: z.boolean().optional().default(true),
 });
 
-// Webhook schemas
-export const stripeWebhookSchema = z.object({
-  id: z.string(),
-  object: z.literal('event'),
-  type: z.string(),
-  data: z.object({
-    object: z.any(),
-  }),
-});
-
 // Common validation helpers
 export const validateId = (id: string) => {
   return z.string().min(1, 'ID is required').parse(id);

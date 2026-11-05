@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
 
   // Check if the current route requires authentication. Order confirmation
   // pages are reachable right after guest checkout (no session yet) — access
-  // there is proven by the Stripe session id instead, so exclude them here.
+  // there is proven by the order's confirmation token instead, so exclude them here.
   const isGuestCheckoutConfirmation = /^\/orders\/[^/]+\/success(?:\/|$)/.test(
     pathname
   );
@@ -120,13 +120,12 @@ export async function proxy(request: NextRequest) {
   // Content Security Policy
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com;
+    script-src 'self' 'unsafe-eval' 'unsafe-inline';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' blob: data: https:;
     media-src 'self' blob: data:;
-    connect-src 'self' https://api.stripe.com https://maps.googleapis.com;
-    frame-src 'self' https://js.stripe.com https://hooks.stripe.com;
+    connect-src 'self';
     worker-src 'self' blob:;
   `
     .replace(/\s{2,}/g, ' ')

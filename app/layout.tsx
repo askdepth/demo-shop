@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: 'NextJS E-commerce Store',
     template: '%s | NextJS E-commerce',
   },
-  description: 'Modern e-commerce store built with Next.js, Prisma, and Stripe',
+  description: 'Modern e-commerce store built with Next.js and Prisma',
   keywords: ['ecommerce', 'nextjs', 'store', 'shopping'],
   authors: [{ name: 'NextJS E-commerce' }],
   creator: 'NextJS E-commerce',

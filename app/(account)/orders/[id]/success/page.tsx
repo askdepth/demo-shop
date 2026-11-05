@@ -13,7 +13,7 @@ import { formatPrice } from '@/lib/utils';
 
 interface SuccessPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ token?: string }>;
 }
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default async function OrderSuccessPage(props: SuccessPageProps) {
 
   const order = await getOrderForConfirmation(
     params.id,
-    searchParams.session_id
+    searchParams.token
   );
 
   if (!order) {

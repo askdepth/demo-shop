@@ -23,15 +23,13 @@ Because the data is fictional, it can be reset, reseeded and broken freely witho
 - Product catalog with search, filtering and categories
 - Shopping cart with persistent storage
 - User authentication (NextAuth.js)
-- Stripe checkout (test mode only)
+- Simple checkout (no real payment, orders are created instantly)
 - Admin dashboard for products and orders
-- Newsletter subscription
 
 **Tech stack**
-- **Frontend:** Next.js 15.5 | React 18 | TypeScript 5.9 | Tailwind CSS | shadcn/ui
+- **Frontend:** Next.js 16 | React 19 | TypeScript 5.9 | Tailwind CSS | shadcn/ui
 - **Backend:** Server Components | Server Actions | API Routes
 - **Database:** PostgreSQL 15 | Prisma 5.22
-- **Testing:** Jest | React Testing Library | Cypress
 
 ## Quick Start
 
@@ -49,7 +47,7 @@ cd demo-shop
 npm install
 
 cp .env.example .env.local
-# Edit .env.local with your database URL and keys
+# Edit .env.local with your database URL and NextAuth secret
 
 npx prisma db push
 npm run db:seed
@@ -68,10 +66,6 @@ DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce"
 # NextAuth (required)
 NEXTAUTH_SECRET="your-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
-
-# Stripe (optional, use test keys only)
-STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_SECRET_KEY="sk_test_..."
 ```
 
 See [.env.example](.env.example) for the complete list.
@@ -87,7 +81,7 @@ app/
 ├── (store)/          # Customer-facing pages (products, cart, search)
 ├── (account)/        # User account pages
 ├── admin/            # Admin dashboard
-├── api/              # API routes (auth, newsletter, stripe)
+├── api/              # API routes (auth, checkout, cart, products)
 └── not-found.tsx     # Custom 404 page
 
 components/           # UI components (shadcn/ui, product card, cart drawer, ...)
@@ -109,9 +103,6 @@ npm run db:studio     # Open Prisma Studio
 npm run lint          # ESLint
 npm run type-check    # TypeScript check
 npm run format        # Prettier
-
-npm run test          # Unit tests
-npm run test:e2e      # Cypress tests
 ```
 
 ## Deployment

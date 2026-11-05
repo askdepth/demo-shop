@@ -368,7 +368,7 @@ export const getProductsByCategory = createCachedFunction(
     let orderBy: any = { createdAt: 'desc' };
     if (sortBy === 'price-low') orderBy = { price: 'asc' };
     else if (sortBy === 'price-high') orderBy = { price: 'desc' };
-    else if (sortBy === 'popular') orderBy = { _count: { reviews: 'desc' } };
+    else if (sortBy === 'popular') orderBy = { _count: { orderItems: 'desc' } };
     else if (sortBy === 'rating') orderBy = { avgRating: 'desc' };
 
     const [products, total] = await Promise.all([
@@ -391,11 +391,6 @@ export const getProductsByCategory = createCachedFunction(
           inventory: {
             select: {
               available: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
             },
           },
         },
@@ -455,7 +450,7 @@ export const getAllProductsPaginated = createCachedFunction(
     let orderBy: any = { createdAt: 'desc' };
     if (sortBy === 'price-low') orderBy = { price: 'asc' };
     else if (sortBy === 'price-high') orderBy = { price: 'desc' };
-    else if (sortBy === 'popular') orderBy = { _count: { reviews: 'desc' } };
+    else if (sortBy === 'popular') orderBy = { _count: { orderItems: 'desc' } };
     else if (sortBy === 'rating') orderBy = { avgRating: 'desc' };
 
     const [products, total] = await Promise.all([
@@ -478,11 +473,6 @@ export const getAllProductsPaginated = createCachedFunction(
           inventory: {
             select: {
               available: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
             },
           },
         },

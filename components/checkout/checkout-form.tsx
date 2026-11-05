@@ -85,7 +85,6 @@ export function CheckoutForm({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   const useSavedAddress = () => setAddressMode('saved');
   const editAddress = () => setAddressMode('form');
@@ -138,7 +137,7 @@ export function CheckoutForm({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/stripe/create-checkout', {
+      const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +170,6 @@ export function CheckoutForm({
         return;
       }
 
-      setRedirectUrl(data.url);
       window.location.assign(data.url);
     } catch {
       setError('Something went wrong. Please try again.');
@@ -205,21 +203,6 @@ export function CheckoutForm({
           {error && (
             <Alert variant="destructive" data-testid="checkout-error">
               <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {redirectUrl && (
-            <Alert data-testid="checkout-redirecting">
-              <AlertDescription>
-                Redirecting you to secure payment.{' '}
-                <a
-                  href={redirectUrl}
-                  data-testid="stripe-redirect-link"
-                  className="underline"
-                >
-                  Click here if you are not redirected automatically.
-                </a>
-              </AlertDescription>
             </Alert>
           )}
 

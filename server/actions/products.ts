@@ -5,11 +5,6 @@ import prisma from '@/lib/prisma';
 import { revalidateTag } from 'next/cache';
 import { createProductSchema, updateProductSchema } from '@/lib/validators';
 import { requirePermission, PERMISSIONS } from '@/lib/roles';
-import {
-  uploadImageWithVariants,
-  deleteImageWithVariants,
-} from '@/lib/uploader';
-import { sendLowStockAlert } from '@/lib/emails';
 import { redirect } from 'next/navigation';
 import type { Product, ProductImage } from '@prisma/client';
 
@@ -243,15 +238,6 @@ export async function deleteProduct(productId: string) {
       return { success: false, error: 'Product not found' };
     }
 
-    // Delete product images from storage
-    for (const image of product.images) {
-      try {
-        await deleteImageWithVariants(image.url);
-      } catch (error) {
-        console.error(`Failed to delete image ${image.url}:`, error);
-      }
-    }
-
     // Delete product and associated records
     await prisma.product.delete({
       where: { id: productId },
@@ -345,18 +331,6 @@ export async function updateProductInventory(
       },
     });
 
-    // Check if inventory is low (below 10)
-    if (updatedInventory.available <= 10 && updatedInventory.available > 0) {
-      const adminEmail = process.env.ADMIN_EMAIL;
-      if (adminEmail) {
-        await sendLowStockAlert(
-          adminEmail,
-          product.name,
-          updatedInventory.available
-        );
-      }
-    }
-
     revalidateTag('products', 'max');
     revalidateTag('inventory', 'max');
 
@@ -434,56 +408,6 @@ export async function duplicateProduct(productId: string) {
   }
 }
 
-export async function uploadProductImages(productId: string, files: FileList) {
-  try {
-    await requirePermission(PERMISSIONS.PRODUCT_UPDATE);
-
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { images: true },
-    });
-
-    if (!product) {
-      return { success: false, error: 'Product not found' };
-    }
-
-    const uploadPromises = Array.from(files).map(async file => {
-      const result = await uploadImageWithVariants(file, 'products');
-      return result.original.url;
-    });
-
-    const imageUrls = await Promise.all(uploadPromises);
-    const maxPosition = Math.max(
-      ...product.images.map(img => img.position),
-      -1
-    );
-
-    const updatedProduct = await prisma.product.update({
-      where: { id: productId },
-      data: {
-        images: {
-          create: imageUrls.map((url, index) => ({
-            url,
-            position: maxPosition + 1 + index,
-            altText: product.name,
-          })),
-        },
-      },
-      include: {
-        images: true,
-      },
-    });
-
-    revalidateTag('products', 'max');
-    revalidateTag('product', 'max');
-
-    return { success: true, product: updatedProduct };
-  } catch (error) {
-    console.error('Upload product images error:', error);
-    return { success: false, error: 'Failed to upload product images' };
-  }
-}
-
 export async function deleteProductImage(productId: string, imageId: string) {
   try {
     await requirePermission(PERMISSIONS.PRODUCT_UPDATE);
@@ -494,12 +418,6 @@ export async function deleteProductImage(productId: string, imageId: string) {
 
     if (!image || image.productId !== productId) {
       return { success: false, error: 'Image not found' };
-    }
-
-    try {
-      await deleteImageWithVariants(image.url);
-    } catch (error) {
-      console.error(`Failed to delete image from storage:`, error);
     }
 
     await prisma.productImage.delete({
