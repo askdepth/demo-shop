@@ -1,0 +1,14 @@
+{
+  "apphosting": {
+    "backendId": "demo-shop",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next",
+      ".serena",
+      "firebase-debug.*.log",
+      "functions"
+    ]
+  }
+}

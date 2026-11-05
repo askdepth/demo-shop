@@ -2,6 +2,7 @@
 
 import { PrismaClient, ProductStatus, UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { ADMIN_EMAILS, ensureAdmins } from './admins';
 
 const prisma = new PrismaClient();
 
@@ -9,21 +10,7 @@ async function main() {
   console.log('🌱 Starting database seed...');
 
   // Create admin user
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-  const adminPassword = await hash('admin123', 12);
-
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {},
-    create: {
-      email: adminEmail,
-      name: 'Admin User',
-      role: UserRole.ADMIN,
-      password: adminPassword,
-    },
-  });
-
-  console.log(`👤 Created admin user: ${admin.email}`);
+  await ensureAdmins(prisma);
 
   // Create test customer
   const customerPassword = await hash('customer123', 12);
@@ -321,9 +308,7 @@ async function main() {
   console.log(`📂 Categories: ${await prisma.category.count()}`);
   console.log(`📦 Products: ${await prisma.product.count()}`);
   console.log(`📋 Orders: ${await prisma.order.count()}`);
-  console.log('\n🔐 Admin Login:');
-  console.log(`Email: ${adminEmail}`);
-  console.log('Password: admin123');
+  console.log(`\n🔐 Admin logins: ${ADMIN_EMAILS.join(', ')} (password from ADMIN_PASSWORD)`);
 }
 
 main()

@@ -1,0 +1,35 @@
+# Firebase App Hosting config. Docs: https://firebase.google.com/docs/app-hosting/configure
+runConfig:
+  runtime: nodejs22
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 100
+  minInstances: 0
+  maxInstances: 2
+
+env:
+  # --- Secrets (create with `firebase apphosting:secrets:set <NAME>`) ---
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+    availability: [BUILD, RUNTIME]
+  - variable: DIRECT_URL
+    secret: DIRECT_URL
+    availability: [BUILD, RUNTIME]
+  - variable: NEXTAUTH_SECRET
+    secret: NEXTAUTH_SECRET
+    availability: [RUNTIME]
+
+  # --- Plain values ---
+  # Public URL of the app (custom domain).
+  - variable: NEXTAUTH_URL
+    value: https://demo-shop.askdepth.com
+    availability: [RUNTIME]
+  - variable: NEXT_PUBLIC_APP_URL
+    value: https://demo-shop.askdepth.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_APP_NAME
+    value: Demo Shop
+    availability: [BUILD, RUNTIME]
+  - variable: FORCE_HTTPS
+    value: "true"
+    availability: [RUNTIME]
