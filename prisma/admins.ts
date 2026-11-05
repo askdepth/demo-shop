@@ -3,9 +3,18 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
-export const ADMIN_EMAILS = ['alex@askdepth.com', 'artem@askdepth.com'];
+export function getAdminEmails(): string[] {
+  const emails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (emails.length === 0) {
+    throw new Error('ADMIN_EMAILS is not set (comma-separated, add it to .env)');
+  }
+  return emails;
+}
 
-/** Creates/updates admin users. Password comes from ADMIN_PASSWORD (.env). */
+/** Creates/updates admin users from ADMIN_EMAILS and ADMIN_PASSWORD (.env). */
 export async function ensureAdmins(prisma: PrismaClient) {
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
@@ -13,7 +22,7 @@ export async function ensureAdmins(prisma: PrismaClient) {
   }
   const hashed = await hash(password, 12);
 
-  for (const email of ADMIN_EMAILS) {
+  for (const email of getAdminEmails()) {
     const admin = await prisma.user.upsert({
       where: { email },
       update: { password: hashed, role: UserRole.ADMIN },

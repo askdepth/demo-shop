@@ -2,7 +2,7 @@
 
 import { PrismaClient, ProductStatus, UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { ADMIN_EMAILS, ensureAdmins } from './admins';
+import { ensureAdmins } from './admins';
 
 const prisma = new PrismaClient();
 
@@ -308,7 +308,7 @@ async function main() {
   console.log(`📂 Categories: ${await prisma.category.count()}`);
   console.log(`📦 Products: ${await prisma.product.count()}`);
   console.log(`📋 Orders: ${await prisma.order.count()}`);
-  console.log(`\n🔐 Admin logins: ${ADMIN_EMAILS.join(', ')} (password from ADMIN_PASSWORD)`);
+  console.log('\n🔐 Admin users created from ADMIN_EMAILS / ADMIN_PASSWORD');
 }
 
 main()
