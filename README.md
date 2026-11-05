@@ -1,231 +1,138 @@
-# Next.js E-Commerce Platform
+# Demo Shop
 
 [![Next.js](https://img.shields.io/badge/Next.js_15.5-000?logo=next.js&logoColor=fff)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript_5.9-3178C6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma_5.22-2D3748?logo=prisma&logoColor=fff)](https://www.prisma.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Demo and learning project**  
-> A full-stack e-commerce platform built to demonstrate modern Next.js development patterns with TypeScript, Prisma, and PostgreSQL. Not intended for production use.
+> **Fictional demo store for testing and showing Askdepth to clients.**
+> All products, brands, users and orders are made up. Not a real shop and not intended for production use.
+
+## Purpose
+
+Demo Shop is a realistic e-commerce storefront that we use as a test site for [Askdepth](https://github.com/askdepth):
+
+- **Testing:** a safe, fully controlled site to integrate and test Askdepth on (catalog, search, cart, checkout, accounts).
+- **Client demos:** a ready-made store to show how Askdepth works on a real-looking e-commerce site.
+
+Because the data is fictional, it can be reset, reseeded and broken freely without any consequences.
 
 ## What's Inside
 
-**Core Features**
-- Product catalog with search, filtering & categories
+**Store features**
+- Product catalog with search, filtering and categories
 - Shopping cart with persistent storage
-- Newsletter subscription with validation
-- Custom 404 page with demo messaging
-- User authentication with NextAuth.js
-- Stripe payment integration (configured)
-- Admin dashboard for product & order management
+- User authentication (NextAuth.js)
+- Stripe checkout (test mode only)
+- Admin dashboard for products and orders
+- Newsletter subscription
 
-**Tech Stack**
-- **Frontend:** Next.js 15.5.6 | React 18 | TypeScript 5.9  | Tailwind CSS | shadcn/ui
+**Tech stack**
+- **Frontend:** Next.js 15.5 | React 18 | TypeScript 5.9 | Tailwind CSS | shadcn/ui
 - **Backend:** Server Components | Server Actions | API Routes
-- **Database:** PostgreSQL 15 | Prisma 5.22 ORM
+- **Database:** PostgreSQL 15 | Prisma 5.22
 - **Testing:** Jest | React Testing Library | Cypress
-
-**Current Status (March 2026)**
-- All TypeScript checks passing
-- All ESLint checks passing  
-- 149/149 tests passing (100%)
-- Newsletter feature fully functional
-- Local SVG product images
-- Database migrations applied
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 20+ 
+- Node.js 20+
 - PostgreSQL 15+
-- npm or yarn
+- npm
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/SatvikPraveen/Nextjs-Ecommerce.git
-cd Nextjs-Ecommerce
+git clone https://github.com/askdepth/demo-shop.git
+cd demo-shop
 
-# Install dependencies
 npm install
 
-# Set up environment variables
 cp .env.example .env.local
-# Edit .env.local with your database URL and API keys
+# Edit .env.local with your database URL and keys
 
-# Set up database
 npx prisma db push
 npm run db:seed
 
-# Start development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Open [http://localhost:3000](http://localhost:3000).
 
-### Essential Environment Variables
+### Essential environment variables
 
 ```env
-# Database (Required)
+# Database (required)
 DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce"
 
-# NextAuth (Required)
+# NextAuth (required)
 NEXTAUTH_SECRET="your-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
 
-# Stripe (Optional - for payments)
+# Stripe (optional, use test keys only)
 STRIPE_PUBLISHABLE_KEY="pk_test_..."
 STRIPE_SECRET_KEY="sk_test_..."
 ```
 
-See [.env.example](.env.example) for complete configuration.
+See [.env.example](.env.example) for the complete list.
+
+## Demo Data
+
+`npm run db:seed` fills the database with fictional products, categories and users. Re-run it (after `npx prisma db push --force-reset` if needed) to restore a clean state before a client demo.
 
 ## Project Structure
 
 ```
 app/
-├── (store)/          # Customer-facing pages
-│   ├── products/     # Product catalog
-│   ├── cart/         # Shopping cart
-│   └── search/       # Search results
+├── (store)/          # Customer-facing pages (products, cart, search)
 ├── (account)/        # User account pages
 ├── admin/            # Admin dashboard
-├── api/              # API routes
-│   ├── newsletter/   # Newsletter subscription
-│   ├── stripe/       # Payment webhooks
-│   └── auth/         # Authentication
+├── api/              # API routes (auth, newsletter, stripe)
 └── not-found.tsx     # Custom 404 page
 
-components/
-├── ui/               # shadcn/ui components
-├── newsletter-form.tsx
-├── product-card.tsx
-└── cart-drawer.tsx
-
-server/
-├── actions/          # Server actions
-└── queries/          # Database queries
-
-prisma/
-├── schema.prisma     # Database schema
-└── seed.ts           # Sample data
+components/           # UI components (shadcn/ui, product card, cart drawer, ...)
+server/               # Server actions and database queries
+prisma/               # Schema and seed data
 ```
 
 ## Scripts
 
 ```bash
-# Development
 npm run dev           # Start dev server
 npm run build         # Build for production
 npm run start         # Start production server
 
-# Database
 npm run db:push       # Push schema changes
 npm run db:seed       # Seed with sample data
 npm run db:studio     # Open Prisma Studio
 
-# Code Quality
-npm run lint          # Run ESLint
-npm run type-check    # TypeScript type check
-npm run format        # Format with Prettier
+npm run lint          # ESLint
+npm run type-check    # TypeScript check
+npm run format        # Prettier
 
-# Testing
-npm run test          # Run all tests
-npm run test:e2e      # Run Cypress tests
+npm run test          # Unit tests
+npm run test:e2e      # Cypress tests
 ```
-
-## Documentation
-
-| Guide | Description |
-|-------|-------------|
-| [Quick Start](QUICKSTART.md) | Get running in 5 minutes |
-| [Dev Setup](docs/setup/DEV_SETUP.md) | Complete development environment setup |
-| [Installation](docs/setup/INSTALLATION.md) | Automated environment setup script |
-| [Contributing](docs/contributing/CONTRIBUTING.md) | How to contribute |
-| [Cheat Sheet](docs/contributing/CHEAT_SHEET.md) | Quick command reference |
-| [Project Structure](docs/project/PROJECT_STRUCTURE.md) | Detailed code organization |
-| [Roadmap](docs/project/ROADMAP.md) | Future plans |
-| [Docs Index](docs/DOCS_INDEX.md) | Complete documentation index |
-
-## Recent Updates
-
-**March 2026**
-- Newsletter subscription system with database persistence
-- Custom 404 page for demo project
-- 14 local SVG product & category images
-- Fixed client component directives
-- Repository documentation reorganized
-- Footer updated to 2026
-
-**December 2025**
-- Next.js 15.5.6 upgrade
-- TypeScript strict mode - 0 errors
-- All tests passing (149/149)
-- npm audit: 0 vulnerabilities
-- Prettier formatting applied
-
-## Authentication
-
-Supported providers:
-- Email/Password
-- Google OAuth
-- GitHub OAuth
-- Discord OAuth
-
-Role-based access control for admin features.
-
-## Payments
-
-Stripe integration configured for:
-- Checkout sessions
-- Payment webhooks
-- Order fulfillment
-- Multi-currency support
 
 ## Deployment
 
-**Vercel** (Recommended)
-```bash
-# Connect your GitHub repo to Vercel
-# Add environment variables in dashboard
-# Deploy automatically on push
-```
+**Vercel** — connect the repo, add environment variables, deploy on push.
 
 **Docker**
 ```bash
 docker-compose up -d
 ```
 
-Or build manually:
+or build manually:
 ```bash
-docker build -t nextjs-ecommerce .
-docker run -p 3000:3000 -e DATABASE_URL="..." nextjs-ecommerce
+docker build -t demo-shop .
+docker run -p 3000:3000 -e DATABASE_URL="..." demo-shop
 ```
-
-## Contributing
-
-Contributions welcome! Please see [CONTRIBUTING.md](docs/contributing/CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Built with:
-- [Next.js](https://nextjs.org/)
-- [Prisma](https://www.prisma.io/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [TypeScript](https://www.typescriptlang.org/)
-
----
-
-**Note:** This is a demonstration project for learning purposes. For production use, additional security hardening, comprehensive testing, and infrastructure setup would be required.
+Based on the open-source [Nextjs-Ecommerce](https://github.com/SatvikPraveen/Nextjs-Ecommerce) template by SatvikPraveen. Built with [Next.js](https://nextjs.org/), [Prisma](https://www.prisma.io/), [shadcn/ui](https://ui.shadcn.com/) and [Tailwind CSS](https://tailwindcss.com/).
