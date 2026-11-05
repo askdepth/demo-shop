@@ -1,0 +1,206 @@
+// middleware.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+
+const secret = process.env.NEXTAUTH_SECRET;
+
+// Protected admin routes
+const adminRoutes = ['/admin'];
+
+// Routes that require authentication
+const protectedRoutes = ['/profile', '/orders'];
+
+// Public routes that redirect authenticated users
+const authRoutes = ['/auth/signin', '/auth/signup'];
+
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Get the token from the request. Don't pass `cookieName`: next-auth only
+  // uses the `__Secure-` cookie prefix when NEXTAUTH_URL is https (it's
+  // independent of NODE_ENV), and getToken's default applies that same rule.
+  // Hardcoding the prefix on NODE_ENV made every production build served
+  // over plain http (CI's `next start`, the Docker image) lose the session
+  // here, so /orders and /profile always bounced to sign-in.
+  const token = await getToken({ req: request, secret });
+
+  // Check if the current route is an admin route
+  const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route));
+
+  // Check if the current route requires authentication. Order confirmation
+  // pages are reachable right after guest checkout (no session yet) — access
+  // there is proven by the Stripe session id instead, so exclude them here.
+  const isGuestCheckoutConfirmation = /^\/orders\/[^/]+\/success(?:\/|$)/.test(
+    pathname
+  );
+  const isProtectedRoute =
+    !isGuestCheckoutConfirmation &&
+    protectedRoutes.some(route => pathname.startsWith(route));
+
+  // Check if the current route is an auth route
+  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
+
+  // Handle admin routes
+  if (isAdminRoute) {
+    if (!token) {
+      // Redirect to sign-in page with callback URL
+      const signInUrl = new URL('/auth/signin', request.url);
+      signInUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(signInUrl);
+    }
+
+    // Check if user has admin role
+    if ((token.role as string | undefined)?.toLowerCase() !== 'admin') {
+      // Redirect to access denied page or home
+      return NextResponse.redirect(new URL('/access-denied', request.url));
+    }
+  }
+
+  // Handle protected routes (require authentication)
+  if (isProtectedRoute && !token) {
+    const signInUrl = new URL('/auth/signin', request.url);
+    signInUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  // Handle auth routes (redirect if already authenticated)
+  if (isAuthRoute && token) {
+    // Check if there's a callback URL
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
+    if (callbackUrl && callbackUrl !== '/auth/signin') {
+      return NextResponse.redirect(new URL(callbackUrl, request.url));
+    }
+    // Otherwise redirect to profile or home
+    return NextResponse.redirect(new URL('/profile', request.url));
+  }
+
+  // Handle API routes
+  if (pathname.startsWith('/api/admin')) {
+    if (!token) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Authentication required' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if ((token.role as string | undefined)?.toLowerCase() !== 'admin') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Admin access required' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
+  // Handle protected API routes
+  const protectedApiRoutes = ['/api/profile', '/api/orders'];
+  const isProtectedApiRoute = protectedApiRoutes.some(route =>
+    pathname.startsWith(route)
+  );
+
+  if (isProtectedApiRoute && !token) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Authentication required' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // Add security headers
+  const response = NextResponse.next();
+
+  // Content Security Policy
+  const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' blob: data: https:;
+    media-src 'self' blob: data:;
+    connect-src 'self' https://api.stripe.com https://maps.googleapis.com;
+    frame-src 'self' https://js.stripe.com https://hooks.stripe.com;
+    worker-src 'self' blob:;
+  `
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  response.headers.set('Content-Security-Policy', cspHeader);
+
+  // Other security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'origin-when-cross-origin');
+  response.headers.set('X-DNS-Prefetch-Control', 'off');
+  response.headers.set('X-Download-Options', 'noopen');
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+
+  // HTTPS redirect in production. Next.js fills in `x-forwarded-proto` from
+  // the raw connection when a proxy doesn't set it, so it's always 'http'
+  // for a direct hit (CI, Docker health checks, Lighthouse/Cypress hitting
+  // the container directly) — it can't be used to detect "no proxy in
+  // front". This app's own deployment (docker-compose.yml) has no
+  // TLS-terminating proxy either, so enforce this only when a deployment
+  // explicitly opts in via FORCE_HTTPS (set it when a real proxy in front
+  // terminates TLS and forwards x-forwarded-proto faithfully).
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.FORCE_HTTPS === 'true' &&
+    request.headers.get('x-forwarded-proto') !== 'https'
+  ) {
+    return NextResponse.redirect(
+      `https://${request.headers.get('host')}${request.nextUrl.pathname}`,
+      301
+    );
+  }
+
+  // Rate limiting for sensitive routes
+  const sensitiveRoutes = ['/auth/signin', '/auth/signup', '/api/auth'];
+  const isSensitiveRoute = sensitiveRoutes.some(route =>
+    pathname.startsWith(route)
+  );
+
+  if (isSensitiveRoute) {
+    // Add rate limiting headers (implementation would depend on your rate limiting solution)
+    response.headers.set('X-RateLimit-Limit', '5');
+    response.headers.set('X-RateLimit-Remaining', '4');
+    response.headers.set('X-RateLimit-Reset', (Date.now() + 900000).toString());
+  }
+
+  // Add user info to request headers for API routes
+  if (pathname.startsWith('/api/') && token) {
+    response.headers.set('X-User-ID', token.sub || '');
+    response.headers.set('X-User-Role', token.role || 'user');
+    response.headers.set('X-User-Email', token.email || '');
+  }
+
+  // Logging middleware (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(
+      `[Middleware] ${request.method} ${pathname} - User: ${token?.email || 'anonymous'} - Role: ${token?.role || 'none'}`
+    );
+  }
+
+  return response;
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (images, icons, etc.)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|images|icons|robots.txt|sitemap.xml).*)',
+  ],
+};
