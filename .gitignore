@@ -131,3 +131,6 @@ temp/
 .next-docs/
 .lighthouseci/
 CLAUDE.md
+
+# Serena MCP
+.serena/
