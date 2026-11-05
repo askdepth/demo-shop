@@ -7,6 +7,7 @@ import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { CartProvider } from '@/components/cart-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { getAppUrl } from '@/lib/app-url';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,9 +22,7 @@ export const metadata: Metadata = {
   keywords: ['ecommerce', 'nextjs', 'store', 'shopping'],
   authors: [{ name: 'NextJS E-commerce' }],
   creator: 'NextJS E-commerce',
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  ),
+  metadataBase: new URL(getAppUrl()),
   openGraph: {
     type: 'website',
     locale: 'en_US',

@@ -1,6 +1,7 @@
 // Location: components/jsonld.tsx
 
 import { Product, Organization, WebSite, BreadcrumbList } from 'schema-dts';
+import { getAppUrl } from '@/lib/app-url';
 
 interface JsonLdProps {
   data: Product | Organization | WebSite | BreadcrumbList | any;
@@ -18,7 +19,7 @@ export function JsonLd({ data }: JsonLdProps) {
 // Product structured data
 export function ProductJsonLd({
   product,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  baseUrl = getAppUrl(),
 }: {
   product: {
     id: string;
@@ -77,7 +78,7 @@ export function ProductJsonLd({
 // Organization structured data
 export function OrganizationJsonLd({
   name = process.env.NEXT_PUBLIC_APP_NAME || 'E-Commerce Store',
-  url = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  url = getAppUrl(),
   logo,
   contactPoint,
   sameAs,
@@ -114,7 +115,7 @@ export function OrganizationJsonLd({
 // Website structured data
 export function WebSiteJsonLd({
   name = process.env.NEXT_PUBLIC_APP_NAME || 'E-Commerce Store',
-  url = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  url = getAppUrl(),
 }: {
   name?: string;
   url?: string;
@@ -136,7 +137,7 @@ export function WebSiteJsonLd({
 // Breadcrumb structured data
 export function BreadcrumbJsonLd({
   itemListElements,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  baseUrl = getAppUrl(),
 }: {
   itemListElements: Array<{
     name: string;
@@ -160,7 +161,7 @@ export function BreadcrumbJsonLd({
 // Product list structured data
 export function ProductListJsonLd({
   products,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  baseUrl = getAppUrl(),
 }: {
   products: Array<{
     id: string;
