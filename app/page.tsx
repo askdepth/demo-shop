@@ -1,178 +1,161 @@
 // File: app/page.tsx
-import { Suspense } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Star, TrendingUp, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ProductGrid } from '@/components/product-grid';
-import { ProductCard } from '@/components/product-card';
-import { ProductGridSkeleton } from '@/components/product-grid-skeleton';
-import { getFeaturedProducts, getNewProducts } from '@/server/queries/products';
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
+import { HeroCarousel, type Slide } from '@/components/store/hero-carousel';
+import { Shelf } from '@/components/store/shelf';
+import { DealCountdown } from '@/components/store/deal-countdown';
+import { RecentlyViewed } from '@/components/store/recently-viewed';
+import { SITE_NAME } from '@/lib/site';
+import {
+  getBestSellerSlugs,
+  getCategoryTree,
+  getShelf,
+} from '@/server/queries/catalog';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Home',
-  description:
-    'Discover amazing products at unbeatable prices. Shop the latest trends and bestsellers.',
-  openGraph: {
-    title: 'NextJS E-commerce Store - Home',
-    description: 'Discover amazing products at unbeatable prices',
-    type: 'website',
-  },
+  description: `${SITE_NAME}: deals, best sellers and new arrivals across electronics, home, kitchen, fashion and more.`,
 };
 
-async function FeaturedProducts() {
-  const products = await getFeaturedProducts();
+const SLIDES: Slide[] = [
+  {
+    eyebrow: 'Deals of the day',
+    title: 'Up to 40% off top electronics',
+    text: 'Phones, laptops and headphones at their lowest prices of the season.',
+    cta: 'Shop deals',
+    href: '/search?deals=1',
+    from: '#1e3a8a',
+    to: '#3b82f6',
+    emoji: '🎧',
+  },
+  {
+    eyebrow: 'Home & kitchen',
+    title: 'Upgrade your kitchen this season',
+    text: 'Air fryers, espresso machines and cookware your kitchen deserves.',
+    cta: 'Explore kitchen',
+    href: '/category/kitchen-dining',
+    from: '#9a3412',
+    to: '#f59e0b',
+    emoji: '🍳',
+  },
+  {
+    eyebrow: 'New arrivals',
+    title: 'Fresh finds, just landed',
+    text: 'Be the first to shop the latest products across every category.',
+    cta: 'See what is new',
+    href: '/products?sort=newest',
+    from: '#065f46',
+    to: '#14b8a6',
+    emoji: '🛍️',
+  },
+  {
+    eyebrow: 'Free shipping',
+    title: 'Free delivery on orders over $75',
+    text: 'Plus 30-day easy returns on everything we sell.',
+    cta: 'Start shopping',
+    href: '/products',
+    from: '#581c87',
+    to: '#ec4899',
+    emoji: '📦',
+  },
+];
 
-  if (!products.length) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-muted-foreground">No featured products available.</p>
-      </div>
-    );
-  }
+export default async function HomePage() {
+  const [tree, deals, bestsellers, topRated, fresh, bestSellerSlugs] = await Promise.all([
+    getCategoryTree(),
+    getShelf('deals', 12),
+    getShelf('bestsellers', 12),
+    getShelf('top-rated', 12),
+    getShelf('new', 12),
+    getBestSellerSlugs(),
+  ]);
 
-  return <ProductGrid products={products as any} />;
-}
+  // First four top-level categories get "tile" cards; ones with sub-categories show a 2x2 grid.
+  const tileCards = tree.slice(0, 8);
 
-async function NewProducts() {
-  const products = await getNewProducts();
-
-  if (!products.length) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-muted-foreground">No new products available.</p>
-      </div>
-    );
-  }
-
-  return <ProductGrid products={products.slice(0, 4) as any} />;
-}
-
-export default function HomePage() {
   return (
-    <>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600">
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-              Welcome to Our
-              <span className="block text-yellow-300">Amazing Store</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-200">
-              Discover incredible products at unbeatable prices. From the latest
-              trends to timeless classics, we have everything you need to
-              elevate your lifestyle.
-            </p>
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Button
-                asChild
-                size="lg"
-                className="bg-white text-gray-900 hover:bg-gray-100"
-              >
-                <Link href="/products">
-                  Shop Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
+    <div className="bg-gray-100 pb-10">
+      <HeroCarousel slides={SLIDES} />
+
+      <div className="relative z-10 mx-auto -mt-28 max-w-[1500px] space-y-4 px-3 sm:-mt-32 sm:px-4">
+        {/* Category cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="category-cards">
+          {tileCards.map(cat => {
+            const tiles = cat.children.length >= 2 ? cat.children.slice(0, 4) : [];
+            return (
+              <div key={cat.id} className="flex flex-col rounded-md bg-white p-4 shadow-sm">
+                <h2 className="mb-3 text-xl font-bold text-gray-900">{cat.name}</h2>
+                {tiles.length ? (
+                  <div className="grid flex-1 grid-cols-2 gap-3">
+                    {tiles.map(t => (
+                      <Link key={t.id} href={`/category/${t.slug}`} className="group">
+                        <div className="relative aspect-square overflow-hidden rounded bg-muted/40">
+                          <Image
+                            src={t.image || '/images/placeholder.svg'}
+                            alt={t.name}
+                            fill
+                            sizes="150px"
+                            className="object-cover transition-transform group-hover:scale-105"
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-700">{t.name}</p>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Link href={`/category/${cat.slug}`} className="group flex-1">
+                    <div className="relative aspect-square overflow-hidden rounded bg-muted/40">
+                      <Image
+                        src={cat.image || '/images/placeholder.svg'}
+                        alt={cat.name}
+                        fill
+                        sizes="300px"
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                  </Link>
+                )}
+                <Link
+                  href={`/category/${cat.slug}`}
+                  className="mt-3 text-sm text-sky-700 hover:text-orange-700 hover:underline"
+                >
+                  See more
                 </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-white bg-transparent text-white hover:bg-white hover:text-gray-900"
-              >
-                <Link href="/category/featured">Browse Categories</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="bg-gray-50 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-            <div className="text-center">
-              <div className="flex justify-center">
-                <Users className="h-12 w-12 text-blue-600" />
               </div>
-              <h2 className="mt-4 text-3xl font-bold text-gray-900">10K+</h2>
-              <p className="text-gray-600">Happy Customers</p>
-            </div>
-            <div className="text-center">
-              <div className="flex justify-center">
-                <TrendingUp className="h-12 w-12 text-green-600" />
-              </div>
-              <h2 className="mt-4 text-3xl font-bold text-gray-900">500+</h2>
-              <p className="text-gray-600">Products Available</p>
-            </div>
-            <div className="text-center">
-              <div className="flex justify-center">
-                <Star className="h-12 w-12 text-yellow-600" />
-              </div>
-              <h2 className="mt-4 text-3xl font-bold text-gray-900">4.9/5</h2>
-              <p className="text-gray-600">Average Rating</p>
-            </div>
-          </div>
+            );
+          })}
         </div>
-      </section>
 
-      {/* Featured Products */}
-      <section className="py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Featured Products
-            </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              Hand-picked selections from our best-selling items
-            </p>
-          </div>
-          <div className="mt-12">
-            <Suspense fallback={<ProductGridSkeleton />}>
-              <FeaturedProducts />
-            </Suspense>
-          </div>
-          <div className="mt-12 text-center">
-            <Button asChild variant="outline" size="lg">
-              <Link href="/products">
-                View All Products
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* New Arrivals */}
-      <section className="bg-gray-50 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              New Arrivals
-            </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              Fresh finds and latest additions to our collection
-            </p>
-          </div>
-          <div className="mt-12">
-            <Suspense fallback={<ProductGridSkeleton />}>
-              <NewProducts />
-            </Suspense>
-          </div>
-          <div className="mt-12 text-center">
-            <Button asChild size="lg">
-              <Link href="/products?sort=newest">
-                Shop New Arrivals
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-    </>
+        <Shelf
+          title="Deals of the Day"
+          products={deals}
+          href="/search?deals=1"
+          linkLabel="See all deals"
+          right={<DealCountdown />}
+        />
+        <Shelf
+          title="Best Sellers"
+          products={bestsellers}
+          href="/products?sort=popular"
+          bestSellers={bestSellerSlugs}
+        />
+        <Shelf
+          title="Top rated by customers"
+          products={topRated}
+          href="/products?sort=rating"
+          bestSellers={bestSellerSlugs}
+        />
+        <Shelf
+          title="New arrivals"
+          products={fresh}
+          href="/products?sort=newest"
+          bestSellers={bestSellerSlugs}
+        />
+        <RecentlyViewed />
+      </div>
+    </div>
   );
 }

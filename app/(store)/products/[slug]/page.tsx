@@ -1,361 +1,295 @@
 // File: app/(store)/products/[slug]/page.tsx
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import Image from 'next/image';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Star, Heart, Share2, Truck, Shield, RotateCcw } from 'lucide-react';
-import {
-  getProductBySlug,
-  getRelatedProducts,
-} from '@/server/queries/products';
+import { notFound } from 'next/navigation';
+import { MapPin, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
 import { AddToCart } from '@/components/add-to-cart';
-import { ProductCard } from '@/components/product-card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatPrice } from '@/lib/utils';
 import { JsonLd } from '@/components/jsonld';
+import { BuyNow } from '@/components/store/buy-now';
+import { FrequentlyBought } from '@/components/store/frequently-bought';
+import { Price } from '@/components/store/price';
+import { ProductGallery } from '@/components/store/product-gallery';
+import { RatingStars } from '@/components/store/rating-stars';
+import { RecentlyViewed, TrackView } from '@/components/store/recently-viewed';
+import { ReviewsSection } from '@/components/store/reviews-section';
+import { Shelf } from '@/components/store/shelf';
+import { getCurrentSession } from '@/lib/auth';
+import { FREE_SHIPPING_THRESHOLD, SITE_NAME, deliveryDate } from '@/lib/site';
+import { formatCurrency } from '@/lib/utils';
+import {
+  getBestSellerSlugs,
+  getFrequentlyBoughtWith,
+  getProductDetail,
+  getRelated,
+} from '@/server/queries/catalog';
+
+export const dynamic = 'force-dynamic';
 
 interface ProductPageProps {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
-  const params = await props.params;
-  const product = await getProductBySlug(params.slug);
-
-  if (!product) {
-    return {
-      title: 'Product Not Found',
-    };
-  }
-
+  const { slug } = await props.params;
+  const detail = await getProductDetail(slug);
+  if (!detail) return { title: 'Product Not Found' };
+  const { product } = detail;
+  const images = product.images.map(i => ({ url: i.url, alt: product.name }));
   return {
     title: product.name,
     description: product.description || undefined,
-    openGraph: {
-      title: product.name,
-      description: product.description || undefined,
-      type: 'website',
-      images: product.images.map(img => ({
-        url: img.url,
-        width: 1200,
-        height: 630,
-        alt: product.name,
-      })),
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: product.name,
-      description: product.description || undefined,
-      images: product.images.map(img => img.url),
-    },
+    openGraph: { title: product.name, description: product.description || undefined, type: 'website', images },
+    twitter: { card: 'summary_large_image', title: product.name, images: images.map(i => i.url) },
   };
 }
 
 export default async function ProductPage(props: ProductPageProps) {
-  const params = await props.params;
-  const product = await getProductBySlug(params.slug);
+  const { slug } = await props.params;
+  const detail = await getProductDetail(slug);
+  if (!detail) notFound();
 
-  if (!product) {
-    notFound();
-  }
+  const { product, reviews, histogram, questions, stock } = detail;
+  const price = Number(product.price);
+  const comparePrice = product.comparePrice ? Number(product.comparePrice) : null;
+  const onSale = !!comparePrice && comparePrice > price;
+  const savePct = onSale ? Math.round(((comparePrice! - price) / comparePrice!) * 100) : 0;
+  const inStock = !product.trackQuantity || stock > 0;
+  const lowStock = inStock && product.trackQuantity && stock <= 5;
+  const freeShipping = price >= FREE_SHIPPING_THRESHOLD;
+  const specs = (product.specs ?? {}) as Record<string, string>;
 
-  const relatedProducts = product.categoryId
-    ? await getRelatedProducts(product.id, product.categoryId)
-    : [];
-
-  const averageRating = 4.5; // This would come from reviews
-  const totalReviews = 128; // This would come from reviews
+  const [session, related, together, bestSellers] = await Promise.all([
+    getCurrentSession(),
+    getRelated(product.id, product.categoryId),
+    getFrequentlyBoughtWith(product.id, product.categoryId),
+    getBestSellerSlugs(),
+  ]);
+  const isBestSeller = bestSellers.has(product.slug);
 
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     description: product.description,
-    image: product.images.map(img => img.url),
+    image: product.images.map(i => i.url),
     sku: product.sku,
-    brand: {
-      '@type': 'Brand',
-      name: 'Store Brand',
-    },
+    brand: { '@type': 'Brand', name: product.brand ?? SITE_NAME },
     offers: {
       '@type': 'Offer',
-      price: product.price,
+      price,
       priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-      seller: {
-        '@type': 'Organization',
-        name: 'NextJS E-commerce Store',
+      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: SITE_NAME },
+    },
+    ...(product.reviewCount > 0 && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: product.avgRating,
+        reviewCount: product.reviewCount,
       },
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: averageRating,
-      reviewCount: totalReviews,
-    },
+    }),
   };
+
+  const maxQty = Math.max(0, Math.min(10, stock));
 
   return (
     <>
       <JsonLd data={structuredData} />
+      <TrackView
+        item={{ slug: product.slug, name: product.name, price, image: product.images[0]?.url }}
+      />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav className="mb-8" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <li>
-              <Link href="/" className="hover:text-foreground">
-                Home
+      <div className="mx-auto max-w-[1500px] px-3 py-4 sm:px-6">
+        <nav aria-label="Breadcrumb" className="mb-4 text-sm text-gray-600">
+          <Link href="/" className="hover:text-orange-700 hover:underline">Home</Link>
+          {product.category?.parent && (
+            <>
+              <span className="mx-1">›</span>
+              <Link href={`/category/${product.category.parent.slug}`} className="hover:text-orange-700 hover:underline">
+                {product.category.parent.name}
               </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link href="/products" className="hover:text-foreground">
-                Products
+            </>
+          )}
+          {product.category && (
+            <>
+              <span className="mx-1">›</span>
+              <Link href={`/category/${product.category.slug}`} className="hover:text-orange-700 hover:underline">
+                {product.category.name}
               </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link
-                href={`/category/${product.category?.slug}`}
-                className="hover:text-foreground"
-              >
-                {product.category?.name}
-              </Link>
-            </li>
-            <li>/</li>
-            <li className="font-medium text-foreground">{product.name}</li>
-          </ol>
+            </>
+          )}
         </nav>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Product Images */}
-          <div className="space-y-4">
-            <div className="aspect-square overflow-hidden rounded-lg">
-              <Image
-                src={product.images[0]?.url || '/images/placeholder.png'}
-                alt={product.name}
-                width={600}
-                height={600}
-                className="h-full w-full object-cover"
-                priority
-              />
-            </div>
-            {product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {product.images.slice(1, 5).map((image, index) => (
-                  <div
-                    key={index}
-                    className="aspect-square overflow-hidden rounded-lg"
-                  >
-                    <Image
-                      src={image.url}
-                      alt={`${product.name} ${index + 2}`}
-                      width={150}
-                      height={150}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_290px]">
+          <ProductGallery images={product.images} name={product.name} />
+
+          {/* Details */}
+          <div>
+            <h1 className="text-2xl font-medium leading-snug text-gray-900" data-testid="product-title">
+              {product.name}
+            </h1>
+            {product.brand && (
+              <Link
+                href={`/search?brand=${encodeURIComponent(product.brand)}`}
+                className="text-sm text-sky-700 hover:text-orange-700 hover:underline"
+              >
+                Visit the {product.brand} store
+              </Link>
             )}
-          </div>
+            {product.reviewCount > 0 && (
+              <a href="#reviews" className="mt-1 flex items-center gap-2 text-sm" data-testid="rating-summary">
+                <span className="font-medium">{product.avgRating.toFixed(1)}</span>
+                <RatingStars rating={product.avgRating} size="md" />
+                <span className="text-sky-700 hover:text-orange-700 hover:underline">
+                  {product.reviewCount.toLocaleString()} ratings
+                </span>
+              </a>
+            )}
+            {isBestSeller && (
+              <span className="mt-2 inline-block rounded-sm bg-orange-500 px-2 py-0.5 text-xs font-semibold text-white">
+                Best Seller
+              </span>
+            )}
 
-          {/* Product Info */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                {product.name}
-              </h1>
-              <div className="mt-2 flex items-center space-x-2">
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-5 w-5 ${
-                        i < Math.floor(averageRating)
-                          ? 'fill-current text-yellow-400'
-                          : 'text-gray-300'
-                      }`}
-                    />
+            <hr className="my-3" />
+
+            <div className="flex flex-wrap items-baseline gap-3">
+              {onSale && <span className="text-2xl font-light text-red-700">-{savePct}%</span>}
+              <Price value={price} size="lg" />
+            </div>
+            {onSale && (
+              <p className="text-sm text-muted-foreground">
+                List Price: <span className="line-through">{formatCurrency(comparePrice!)}</span>
+              </p>
+            )}
+            <p className="mt-1 text-sm text-gray-700">
+              {freeShipping ? 'FREE delivery' : `$5.99 delivery`} &amp; free 30-day returns.
+            </p>
+
+            {product.bullets.length > 0 && (
+              <>
+                <h2 className="mt-5 text-base font-bold">About this item</h2>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm" data-testid="product-bullets">
+                  {product.bullets.map(b => (
+                    <li key={b}>{b}</li>
                   ))}
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {averageRating} ({totalReviews} reviews)
-                </span>
+                </ul>
+              </>
+            )}
+            {product.description && <p className="mt-4 text-sm text-gray-700">{product.description}</p>}
+
+            <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
+              <div>
+                <Truck className="mx-auto h-7 w-7 text-sky-700" />
+                <p className="mt-1">Free delivery over ${FREE_SHIPPING_THRESHOLD}</p>
+              </div>
+              <div>
+                <RotateCcw className="mx-auto h-7 w-7 text-sky-700" />
+                <p className="mt-1">30-day returns</p>
+              </div>
+              <div>
+                <ShieldCheck className="mx-auto h-7 w-7 text-sky-700" />
+                <p className="mt-1">Secure demo checkout</p>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center space-x-4">
-                <span className="text-3xl font-bold text-gray-900">
-                  {formatPrice(product.price)}
-                </span>
-                {product.comparePrice && (
-                  <span className="text-xl text-muted-foreground line-through">
-                    {formatPrice(product.comparePrice)}
-                  </span>
-                )}
-              </div>
-              {product.comparePrice && (
-                <Badge variant="secondary">
-                  Save{' '}
-                  {Math.round(
-                    ((Number(product.comparePrice) - Number(product.price)) /
-                      Number(product.comparePrice)) *
-                      100
-                  )}
-                  %
-                </Badge>
+          {/* Buy box */}
+          <aside className="h-fit rounded-lg border p-4 lg:sticky lg:top-32" data-testid="buy-box" aria-label="Buy box">
+            <Price value={price} size="lg" />
+            <p className="mt-2 text-sm">
+              {freeShipping ? (
+                <span className="font-semibold text-sky-800">FREE delivery </span>
+              ) : (
+                <span>Delivery </span>
               )}
+              <span className="font-bold">{deliveryDate(freeShipping ? 1 : 2)}</span>
+            </p>
+            <p className="mt-2 flex items-center gap-1 text-sm text-sky-700">
+              <MapPin className="h-4 w-4" /> Deliver to New York 10001
+            </p>
+
+            <p
+              className={`mt-3 text-lg font-medium ${inStock ? 'text-green-700' : 'text-red-700'}`}
+              data-testid="stock-status"
+            >
+              {inStock ? (lowStock ? `Only ${stock} left in stock - order soon.` : 'In Stock') : 'Currently unavailable'}
+            </p>
+
+            <div className="mt-3 space-y-3">
+              <AddToCart
+                productId={product.id}
+                showQuantitySelector
+                maxQuantity={maxQty}
+                disabled={!inStock}
+                className="rounded-full bg-amber-400 text-black hover:bg-amber-500"
+              />
+              <BuyNow productId={product.id} disabled={!inStock} />
             </div>
 
-            <p className="text-gray-600">{product.description}</p>
-
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <Badge variant="default">In Stock</Badge>
-                {product.sku && (
-                  <span className="text-sm text-muted-foreground">
-                    SKU: {product.sku}
-                  </span>
-                )}
-              </div>
-
-              <AddToCart productId={product.id} />
-
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <Heart className="mr-2 h-4 w-4" />
-                  Add to Wishlist
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Features */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <Truck className="mx-auto h-8 w-8 text-blue-600" />
-                <p className="mt-2 text-sm font-medium">Free Shipping</p>
-                <p className="text-xs text-muted-foreground">
-                  On orders over $100
-                </p>
-              </div>
-              <div>
-                <Shield className="mx-auto h-8 w-8 text-green-600" />
-                <p className="mt-2 text-sm font-medium">Secure Payment</p>
-                <p className="text-xs text-muted-foreground">100% protected</p>
-              </div>
-              <div>
-                <RotateCcw className="mx-auto h-8 w-8 text-purple-600" />
-                <p className="mt-2 text-sm font-medium">Easy Returns</p>
-                <p className="text-xs text-muted-foreground">30-day policy</p>
-              </div>
-            </div>
-          </div>
+            <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-gray-600">
+              <dt>Ships from</dt>
+              <dd>{SITE_NAME}</dd>
+              <dt>Sold by</dt>
+              <dd>{product.brand ?? SITE_NAME}</dd>
+              <dt>Returns</dt>
+              <dd className="text-sky-700">30-day refund / replacement</dd>
+            </dl>
+          </aside>
         </div>
 
-        {/* Product Details Tabs */}
-        <div className="mt-16">
-          <Tabs defaultValue="description" className="w-full">
-            <TabsList>
-              <TabsTrigger value="description">Description</TabsTrigger>
-              <TabsTrigger value="specifications">Specifications</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews</TabsTrigger>
-              <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
-            </TabsList>
+        <div className="mt-10 space-y-10">
+          {together.length > 0 && (
+            <FrequentlyBought
+              items={[
+                { id: product.id, name: product.name, slug: product.slug, price, image: product.images[0]?.url },
+                ...together.map(t => ({ id: t.id, name: t.name, slug: t.slug, price: t.price, image: t.image })),
+              ]}
+            />
+          )}
 
-            <TabsContent value="description" className="mt-8">
-              <div className="prose max-w-none">
-                <p>{product.description}</p>
-                {/* Add more detailed description content here */}
-              </div>
-            </TabsContent>
+          <Shelf title="Customers also viewed" products={related} bestSellers={bestSellers} />
 
-            <TabsContent value="specifications" className="mt-8">
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-2 border-b py-2">
-                  <span className="font-medium">SKU</span>
-                  <span>{product.sku}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 border-b py-2">
-                  <span className="font-medium">Category</span>
-                  <span>{product.category?.name}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 border-b py-2">
-                  <span className="font-medium">Weight</span>
-                  <span>1.2 lbs</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 border-b py-2">
-                  <span className="font-medium">Dimensions</span>
-                  <span>10 × 8 × 2 in</span>
-                </div>
-              </div>
-            </TabsContent>
+          {Object.keys(specs).length > 0 && (
+            <section id="specs" data-testid="specifications">
+              <h2 className="mb-3 text-xl font-bold">Product information</h2>
+              <table className="w-full max-w-2xl text-sm">
+                <tbody>
+                  {[
+                    ...Object.entries(specs),
+                    ['SKU', product.sku ?? '-'],
+                    ['Category', product.category?.name ?? '-'],
+                    ['Date first available', new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(product.createdAt)],
+                  ].map(([k, v]) => (
+                    <tr key={k} className="border-b odd:bg-gray-50">
+                      <th scope="row" className="w-1/3 px-3 py-2 text-left font-semibold">{k}</th>
+                      <td className="px-3 py-2">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
 
-            <TabsContent value="reviews" className="mt-8">
-              <div className="py-8 text-center">
-                <p className="text-muted-foreground">Reviews coming soon...</p>
-              </div>
-            </TabsContent>
+          <ReviewsSection
+            productId={product.id}
+            avgRating={product.avgRating}
+            reviewCount={product.reviewCount}
+            histogram={histogram}
+            reviews={reviews.map(r => ({ ...r, createdAt: r.createdAt.toISOString() }))}
+            questions={questions.map(q => ({
+              id: q.id,
+              question: q.question,
+              answer: q.answer,
+              answeredBy: q.answeredBy,
+              askerName: q.askerName,
+              votes: q.votes,
+            }))}
+            signedInName={session?.user?.name}
+          />
 
-            <TabsContent value="shipping" className="mt-8">
-              <div className="prose max-w-none">
-                <h3>Shipping Information</h3>
-                <ul>
-                  <li>Free standard shipping on orders over $100</li>
-                  <li>Express shipping available for $15</li>
-                  <li>Orders typically process within 1-2 business days</li>
-                </ul>
-
-                <h3>Return Policy</h3>
-                <ul>
-                  <li>30-day return window</li>
-                  <li>Items must be in original condition</li>
-                  <li>Free return shipping for defective items</li>
-                </ul>
-              </div>
-            </TabsContent>
-          </Tabs>
+          <RecentlyViewed excludeSlug={product.slug} title="Your recently viewed items" />
         </div>
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-16">
-            <h2 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
-              Related Products
-            </h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedProducts.map(relatedProduct => (
-                <ProductCard
-                  key={relatedProduct.id}
-                  id={relatedProduct.id}
-                  name={relatedProduct.name}
-                  slug={relatedProduct.slug}
-                  price={Number(relatedProduct.price)}
-                  comparePrice={
-                    relatedProduct.comparePrice
-                      ? Number(relatedProduct.comparePrice)
-                      : undefined
-                  }
-                  image={'/images/product-sample.svg'}
-                  status={relatedProduct.status}
-                  category={undefined}
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

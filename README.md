@@ -20,7 +20,9 @@ Because the data is fictional, it can be reset, reseeded and broken freely witho
 ## What's Inside
 
 **Store features**
-- Product catalog with search, filtering and categories
+- Amazon-style storefront: dark header with search autocomplete, deals/best-seller shelves, hero carousel
+- Product catalog with URL-driven filters (brand, price, rating, stock, deals), sorting and pagination
+- Product pages with gallery, buy box, reviews, Q&A, frequently-bought-together and recently viewed
 - Shopping cart with persistent storage
 - User authentication (NextAuth.js)
 - Simple checkout (no real payment, orders are created instantly)
@@ -72,7 +74,14 @@ See [.env.example](.env.example) for the complete list.
 
 ## Demo Data
 
-`npm run db:seed` fills the database with fictional products, categories and users. Re-run it (after `npx prisma db push --force-reset` if needed) to restore a clean state before a client demo.
+`npm run db:seed` wipes and recreates a deterministic demo shop: 13 categories, 92 products (brands, bullets, specs, stock levels including out-of-stock and low-stock items, discounts), ~1,300 reviews, Q&A, and one order in every status for the demo customer.
+
+- Demo customer: `customer@example.com` / `customer123` (also a one-click button on the sign-in page).
+- Admins come from `ADMIN_EMAILS` / `ADMIN_PASSWORD`.
+- **Reset from the UI:** sign in as admin, open **Admin → Demo tools**, click *Reset demo data*.
+- Product and category images are SVG placeholders in `public/images`. Regenerate them after editing `prisma/seed-data.ts` with `npm run db:placeholders`.
+
+Existing database? Apply the new tables first with `npx prisma migrate deploy` (or `npx prisma db push`), then reseed.
 
 ## Project Structure
 
@@ -97,7 +106,8 @@ npm run build         # Build for production
 npm run start         # Start production server
 
 npm run db:push       # Push schema changes
-npm run db:seed       # Seed with sample data
+npm run db:seed       # Wipe and reseed demo data
+npm run db:placeholders # Regenerate SVG placeholder images
 npm run db:studio     # Open Prisma Studio
 
 npm run lint          # ESLint

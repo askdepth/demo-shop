@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:admins": "tsx prisma/seed-admins.ts",
+    "db:placeholders": "tsx scripts/generate-placeholders.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "type-check": "tsc --noEmit",

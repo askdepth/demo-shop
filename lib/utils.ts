@@ -272,3 +272,10 @@ export function generateRandomId(length: number = 8): string {
 
   return result;
 }
+
+/** Amazon-style order number, e.g. 112-4839201-7743920. */
+export function generateDemoOrderNumber(): string {
+  const digits = (n: number) =>
+    Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+  return `112-${digits(7)}-${digits(7)}`;
+}

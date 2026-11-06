@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import { randomUUID } from 'crypto';
 import { checkoutSchema } from '@/lib/validators';
+import { generateDemoOrderNumber } from '@/lib/utils';
 import { getCurrentUser } from '@/lib/roles';
 import { revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -81,7 +82,7 @@ export async function createCheckout(formData: FormData) {
     // Create pending order
     const order = await prisma.order.create({
       data: {
-        orderNumber: `ORD-${Date.now()}`,
+        orderNumber: generateDemoOrderNumber(),
         userId: user?.id,
         status: 'PENDING',
         confirmationToken,

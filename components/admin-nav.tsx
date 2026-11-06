@@ -19,6 +19,10 @@ const adminNavItems = [
     href: '/admin/inventory',
     label: 'Inventory',
   },
+  {
+    href: '/admin/demo',
+    label: 'Demo tools',
+  },
 ];
 
 export function AdminNav() {
