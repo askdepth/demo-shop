@@ -2,10 +2,12 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Star } from 'lucide-react';
+import { Price } from '@/components/store/price';
+import { RatingStars } from '@/components/store/rating-stars';
+import { formatCurrency } from '@/lib/utils';
+import { FREE_SHIPPING_THRESHOLD, deliveryDate } from '@/lib/site';
 import { AddToCart } from './add-to-cart';
 
 interface ProductCardProps {
@@ -17,13 +19,14 @@ interface ProductCardProps {
   image?: string;
   rating?: number;
   reviewCount?: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-  category?: {
-    name: string;
-    slug: string;
-  };
+  status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  category?: { name: string; slug: string };
+  brand?: string | null;
   inStock?: boolean;
+  stockLeft?: number | null;
   badge?: string;
+  /** Fixed width card for horizontal shelves. */
+  compact?: boolean;
 }
 
 export function ProductCard({
@@ -35,114 +38,106 @@ export function ProductCard({
   image,
   rating = 0,
   reviewCount = 0,
-  status,
-  category,
+  brand,
   inStock = true,
+  stockLeft,
   badge,
+  compact,
 }: ProductCardProps) {
-  const discountPercentage = comparePrice
-    ? Math.round(((comparePrice - price) / comparePrice) * 100)
+  const isOnSale = !!comparePrice && comparePrice > price;
+  const discountPercentage = isOnSale
+    ? Math.round(((comparePrice! - price) / comparePrice!) * 100)
     : 0;
-
-  const isOnSale = comparePrice && comparePrice > price;
+  const freeShipping = price >= FREE_SHIPPING_THRESHOLD;
 
   return (
     <Card
       data-testid="product-card"
-      className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg"
+      className="group relative flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg"
     >
-      <div className="relative aspect-square overflow-hidden">
-        <Link href={`/products/${slug}`} className="block">
+      <div className="relative aspect-square overflow-hidden bg-muted/40">
+        <Link href={`/products/${slug}`} className="block h-full" aria-label={name}>
           <Image
             src={image || '/images/placeholder.svg'}
             alt={name}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
+            sizes={compact ? '220px' : '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'}
           />
         </Link>
-
-        {/* Badges */}
-        <div className="absolute left-2 top-2 flex flex-col gap-2">
-          {isOnSale && (
-            <Badge variant="destructive" className="bg-red-600 text-xs hover:bg-red-600/80">
-              -{discountPercentage}%
-            </Badge>
-          )}
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           {badge && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge className="rounded-sm bg-orange-500 text-[11px] font-semibold text-white hover:bg-orange-500">
               {badge}
             </Badge>
           )}
-          {!inStock && (
-            <Badge variant="outline" className="bg-background/80 text-xs">
-              Out of Stock
+          {isOnSale && (
+            <Badge className="rounded-sm bg-red-600 text-[11px] font-semibold text-white hover:bg-red-600">
+              -{discountPercentage}%
             </Badge>
           )}
         </div>
-
-        {/* Quick Add Button - Shows on hover */}
-        <div className="absolute inset-x-2 bottom-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <AddToCart
-            productId={id}
-            disabled={!inStock}
-            variant="secondary"
-            size="sm"
-            className="w-full bg-background/90 hover:bg-background"
-          />
-        </div>
       </div>
 
-      <CardContent className="p-4">
-        {/* Category */}
-        {category && (
-          <p className="mb-1 text-xs text-muted-foreground">{category.name}</p>
-        )}
-
-        {/* Product Name */}
+      <CardContent className="flex flex-1 flex-col p-3">
+        {brand && <p className="text-xs text-muted-foreground">{brand}</p>}
         <Link href={`/products/${slug}`}>
-          <h3 className="mb-2 mt-1 line-clamp-2 text-sm font-medium transition-colors hover:text-primary">
+          <h3
+            className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug hover:text-orange-700 hover:underline"
+            data-testid="product-name"
+          >
             {name}
           </h3>
         </Link>
 
-        {/* Rating */}
-        {rating > 0 && (
-          <div className="mb-2 flex items-center gap-1">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-3 w-3 ${
-                    i < Math.floor(rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground">
-              ({reviewCount})
-            </span>
+        {reviewCount > 0 && (
+          <div className="mt-1 flex items-center gap-1.5" data-testid="product-rating">
+            <RatingStars rating={rating} />
+            <span className="text-xs text-sky-700">{reviewCount.toLocaleString()}</span>
           </div>
         )}
 
-        {/* Price */}
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">{formatCurrency(price)}</span>
-          {comparePrice && comparePrice > price && (
-            <span className="text-sm text-muted-foreground line-through">
-              {formatCurrency(comparePrice)}
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+          <Price value={price} />
+          {isOnSale && (
+            <span className="text-xs text-muted-foreground">
+              List: <span className="line-through">{formatCurrency(comparePrice!)}</span>
             </span>
           )}
         </div>
 
-        {/* Stock Status */}
-        {inStock ? (
-          <p className="mt-1 text-xs text-green-700">In Stock</p>
-        ) : (
-          <p className="mt-1 text-xs text-red-600">Out of Stock</p>
-        )}
+        <div className="mt-1 space-y-0.5 text-xs">
+          {inStock ? (
+            <>
+              <p className="text-muted-foreground">
+                {freeShipping ? (
+                  <>
+                    <span className="font-semibold text-sky-800">FREE delivery</span>{' '}
+                    <span className="font-semibold">{deliveryDate(1)}</span>
+                  </>
+                ) : (
+                  <>
+                    Delivery <span className="font-semibold">{deliveryDate(2)}</span>
+                  </>
+                )}
+              </p>
+              {stockLeft ? (
+                <p className="font-medium text-red-700">Only {stockLeft} left in stock - order soon.</p>
+              ) : null}
+            </>
+          ) : (
+            <p className="font-medium text-red-700">Currently unavailable</p>
+          )}
+        </div>
+
+        <div className="mt-auto pt-3">
+          <AddToCart
+            productId={id}
+            disabled={!inStock}
+            size="sm"
+            className="w-full rounded-full bg-amber-400 text-black hover:bg-amber-500"
+          />
+        </div>
       </CardContent>
     </Card>
   );

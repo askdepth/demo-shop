@@ -8,6 +8,9 @@ import { Footer } from '@/components/footer';
 import { CartProvider } from '@/components/cart-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { getAppUrl } from '@/lib/app-url';
+import { DemoBanner } from '@/components/store/demo-banner';
+import { SITE_NAME } from '@/lib/site';
+import { getCategoryTree } from '@/server/queries/catalog';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,27 +18,26 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: {
-    default: 'NextJS E-commerce Store',
-    template: '%s | NextJS E-commerce',
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
   },
-  description: 'Modern e-commerce store built with Next.js and Prisma',
-  keywords: ['ecommerce', 'nextjs', 'store', 'shopping'],
-  authors: [{ name: 'NextJS E-commerce' }],
-  creator: 'NextJS E-commerce',
+  description: 'Fictional demo e-commerce store: shop thousands of products, deals and more.',
+  keywords: ['ecommerce', 'store', 'shopping', 'demo'],
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
   metadataBase: new URL(getAppUrl()),
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    title: 'NextJS E-commerce Store',
-    description: 'Modern e-commerce store built with Next.js',
-    siteName: 'NextJS E-commerce',
+    title: SITE_NAME,
+    description: 'Fictional demo e-commerce store',
+    siteName: SITE_NAME,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NextJS E-commerce Store',
-    description: 'Modern e-commerce store built with Next.js',
-    creator: '@nextjsecommerce',
+    title: SITE_NAME,
+    description: 'Fictional demo e-commerce store',
   },
   robots: {
     index: true,
@@ -50,20 +52,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const tree = await getCategoryTree().catch(() => []);
+  const categories = tree.map(c => ({ name: c.name, slug: c.slug }));
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
           <CartProvider>
             <div className="flex min-h-screen flex-col">
-              <Header />
+              <DemoBanner />
+              <Header siteName={SITE_NAME} categories={categories} />
               <main className="flex-1">{children}</main>
-              <Footer />
+              <Footer siteName={SITE_NAME} categories={categories} />
             </div>
             <Toaster />
           </CartProvider>

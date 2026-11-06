@@ -141,21 +141,20 @@ export function CartDrawer({ trigger, open, onOpenChange }: CartDrawerProps) {
 
   const defaultTrigger = (
     <Button
-      variant="outline"
-      size="icon"
-      className="relative"
+      variant="ghost"
+      className="relative h-auto gap-1 px-2 py-1 text-white hover:bg-white/10 hover:text-white"
       data-testid="cart-button"
     >
-      <ShoppingCart className="h-4 w-4" />
-      {itemCount > 0 && (
-        <Badge
-          className="absolute -right-2 -top-2 h-5 w-5 rounded-full p-0 text-xs"
-          variant="destructive"
+      <span className="relative">
+        <ShoppingCart className="h-7 w-7" />
+        <span
+          className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-sm font-bold text-orange-400"
           data-testid="cart-badge"
         >
           {itemCount > 99 ? '99+' : itemCount}
-        </Badge>
-      )}
+        </span>
+      </span>
+      <span className="hidden self-end text-sm font-bold sm:inline">Cart</span>
       <span className="sr-only">Open cart</span>
     </Button>
   );

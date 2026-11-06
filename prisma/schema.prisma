@@ -82,6 +82,12 @@ model Product {
   sku         String?       @unique
   barcode     String?
   tags        String[]
+  brand       String?
+  bullets     String[]
+  specs       Json?
+  avgRating   Float         @default(0)
+  reviewCount Int           @default(0)
+  soldCount   Int           @default(0)
   seoTitle    String?
   seoDescription String?
   createdAt   DateTime      @default(now())
@@ -94,6 +100,8 @@ model Product {
   inventory  Inventory[]
   orderItems OrderItem[]
   cartItems  CartItem[]
+  reviews    Review[]
+  questions  Question[]
 
   @@map("products")
 }
@@ -225,4 +233,38 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  title      String
+  body       String   @db.Text
+  authorName String
+  verified   Boolean  @default(true)
+  helpful    Int      @default(0)
+  productId  String
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@map("reviews")
+}
+
+model Question {
+  id         String    @id @default(cuid())
+  question   String
+  answer     String?
+  askerName  String
+  answeredBy String?
+  votes      Int       @default(0)
+  productId  String
+  createdAt  DateTime  @default(now())
+  answeredAt DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@map("questions")
 }

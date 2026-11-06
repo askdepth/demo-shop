@@ -1,254 +1,85 @@
 // File: app/(store)/category/[slug]/page.tsx
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  getCategoryBySlug,
-  getProductsByCategory,
-} from '@/server/queries/products';
-import { ProductCard } from '@/components/product-card';
-import { ProductGrid } from '@/components/product-grid';
-import { ProductGridSkeleton } from '@/components/product-grid-skeleton';
-import { SortSelect } from '@/components/sort-select';
-import { FilterSidebar } from '@/components/filter-sidebar';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { notFound } from 'next/navigation';
+import { ProductListing } from '@/components/store/listing';
+import { Shelf } from '@/components/store/shelf';
+import type { RawSearchParams } from '@/lib/listing-params';
+import { getCategoryWithTrail, getShelf } from '@/server/queries/catalog';
+
+export const dynamic = 'force-dynamic';
 
 interface CategoryPageProps {
-  params: Promise<{
-    slug: string;
-  }>;
-  searchParams: Promise<{
-    sort?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    page?: string;
-  }>;
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }
 
 export async function generateMetadata(props: CategoryPageProps): Promise<Metadata> {
-  const params = await props.params;
-  const category = await getCategoryBySlug(params.slug);
-
-  if (!category) {
-    return {
-      title: 'Category Not Found',
-    };
-  }
-
+  const { slug } = await props.params;
+  const category = await getCategoryWithTrail(slug);
+  if (!category) return { title: 'Category Not Found' };
   return {
-    title: `${category.name} | Products`,
-    description:
-      category.description ||
-      `Shop ${category.name.toLowerCase()} products at great prices.`,
-    openGraph: {
-      title: `${category.name} Products`,
-      description:
-        category.description ||
-        `Browse our ${category.name.toLowerCase()} collection`,
-      type: 'website',
-    },
+    title: category.name,
+    description: category.description || `Shop ${category.name.toLowerCase()} at great prices.`,
   };
 }
 
-async function CategoryProductCount({ categoryId }: { categoryId: string }) {
-  const result = await getProductsByCategory({
-    categoryId,
-    page: 1,
-    limit: 1,
-  });
+export default async function CategoryPage(props: CategoryPageProps) {
+  const { slug } = await props.params;
+  const searchParams = await props.searchParams;
+  const category = await getCategoryWithTrail(slug);
+  if (!category) notFound();
+
+  const isFirstPage = !searchParams.page || searchParams.page === '1';
+  const hasFilters = Object.keys(searchParams).some(k => k !== 'page');
+  const bestsellers =
+    isFirstPage && !hasFilters ? await getShelf('bestsellers', 10, slug) : [];
 
   return (
-    <Badge variant="secondary" className="ml-4">
-      {result.total || 0} products
-    </Badge>
-  );
-}
-
-async function CategoryProducts({
-  categoryId,
-  searchParams,
-}: {
-  categoryId: string;
-  searchParams: Awaited<CategoryPageProps['searchParams']>;
-}) {
-  const page = parseInt(searchParams.page || '1');
-  const sort = searchParams.sort || 'newest';
-  const minPrice = searchParams.minPrice
-    ? parseFloat(searchParams.minPrice)
-    : undefined;
-  const maxPrice = searchParams.maxPrice
-    ? parseFloat(searchParams.maxPrice)
-    : undefined;
-
-  const result = await getProductsByCategory({
-    categoryId,
-    page,
-    limit: 12,
-    sort: sort as any,
-    minPrice,
-    maxPrice,
-  });
-
-  if (!result.products.length) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-lg text-muted-foreground">
-          No products found in this category.
-        </p>
-        <Button asChild className="mt-4">
-          <Link href="/products">Browse All Products</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {(page - 1) * 12 + 1}-{Math.min(page * 12, result.total)} of{' '}
-          {result.total} products
-        </p>
-        <SortSelect />
-      </div>
-
-      <ProductGrid products={result.products} />
-
-      {/* Pagination */}
-      {result.totalPages > 1 && (
-        <div className="flex justify-center space-x-2">
-          {page > 1 && (
-            <Button asChild variant="outline">
-              <Link
-                href={`/category/${categoryId}?${new URLSearchParams({
-                  ...searchParams,
-                  page: (page - 1).toString(),
-                })}`}
-              >
-                Previous
+    <>
+      <div className="mx-auto max-w-[1500px] px-3 pt-4 sm:px-4">
+        <nav aria-label="Breadcrumb" className="text-sm text-gray-600">
+          <Link href="/" className="hover:text-orange-700 hover:underline">Home</Link>
+          <span className="mx-1">›</span>
+          {category.parent && (
+            <>
+              <Link href={`/category/${category.parent.slug}`} className="hover:text-orange-700 hover:underline">
+                {category.parent.name}
               </Link>
-            </Button>
+              <span className="mx-1">›</span>
+            </>
           )}
-
-          <div className="flex items-center space-x-2">
-            {Array.from({ length: Math.min(5, result.totalPages) }, (_, i) => {
-              const pageNum = i + 1;
-              const isCurrentPage = pageNum === page;
-
-              return (
-                <Button
-                  key={pageNum}
-                  asChild
-                  variant={isCurrentPage ? 'default' : 'outline'}
-                  size="sm"
-                >
-                  <Link
-                    href={`/category/${categoryId}?${new URLSearchParams({
-                      ...searchParams,
-                      page: pageNum.toString(),
-                    })}`}
-                  >
-                    {pageNum}
-                  </Link>
-                </Button>
-              );
-            })}
+          <span className="font-semibold text-gray-900">{category.name}</span>
+        </nav>
+        {category.description && <p className="mt-2 text-sm text-gray-600">{category.description}</p>}
+        {category.children.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2" data-testid="subcategories">
+            {category.children.map(c => (
+              <Link
+                key={c.id}
+                href={`/category/${c.slug}`}
+                className="rounded-full border bg-white px-3 py-1 text-sm hover:border-orange-500 hover:text-orange-700"
+              >
+                {c.name}
+              </Link>
+            ))}
           </div>
+        )}
+      </div>
 
-          {page < result.totalPages && (
-            <Button asChild variant="outline">
-              <Link
-                href={`/category/${categoryId}?${new URLSearchParams({
-                  ...searchParams,
-                  page: (page + 1).toString(),
-                })}`}
-              >
-                Next
-              </Link>
-            </Button>
-          )}
+      <ProductListing
+        basePath={`/category/${slug}`}
+        searchParams={searchParams}
+        fixedCategory={slug}
+        heading={category.name}
+        showCategoryFacet={false}
+      />
+
+      {bestsellers.length > 0 && (
+        <div className="mx-auto max-w-[1500px] px-3 pb-6 sm:px-4">
+          <Shelf title={`Best sellers in ${category.name}`} products={bestsellers} />
         </div>
       )}
-    </div>
-  );
-}
-
-export default async function CategoryPage(props: CategoryPageProps) {
-  const searchParams = await props.searchParams;
-  const params = await props.params;
-  const category = await getCategoryBySlug(params.slug);
-
-  if (!category) {
-    notFound();
-  }
-
-  // Get product count for this category
-  const productCount = 0; // This will be shown in CategoryProducts component instead
-
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Breadcrumb */}
-      <nav className="mb-8" aria-label="Breadcrumb">
-        <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
-          <li>
-            <Link href="/" className="hover:text-foreground">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href="/products" className="hover:text-foreground">
-              Products
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="font-medium text-foreground">{category.name}</li>
-        </ol>
-      </nav>
-
-      {/* Category Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {category.name}
-            </h1>
-            {category.description && (
-              <p className="mt-2 text-lg text-muted-foreground">
-                {category.description}
-              </p>
-            )}
-          </div>
-          <Suspense
-            fallback={
-              <Badge variant="secondary" className="ml-4">
-                Loading...
-              </Badge>
-            }
-          >
-            <CategoryProductCount categoryId={category.id} />
-          </Suspense>
-        </div>
-      </div>
-
-      <div className="flex gap-8">
-        {/* Filters Sidebar */}
-        <aside className="w-64 flex-shrink-0">
-          <FilterSidebar />
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1">
-          <Suspense fallback={<ProductGridSkeleton />}>
-            <CategoryProducts
-              categoryId={category.id}
-              searchParams={searchParams}
-            />
-          </Suspense>
-        </main>
-      </div>
-    </div>
+    </>
   );
 }
