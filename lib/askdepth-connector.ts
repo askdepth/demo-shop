@@ -88,13 +88,15 @@ function getPgPool(): Pool {
 function getConnectorInstance(): ReturnType<typeof createConnector> | null {
   const secret = (
     process.env.ASKDEPTH_CONNECTOR_SECRET ||
-    'c0nn3ct0r_s3cr3t_d3m0_sh0p_2026'
+    'xOpotqDsiUc2vVyirBKiOXPxOwVo7B-IUoNsj6ndWaE'
   ).trim();
   if (!secret) {
     return null;
   }
-  const previousSecret =
-    process.env.ASKDEPTH_CONNECTOR_PREVIOUS_SECRET?.trim() || undefined;
+  const previousSecret = (
+    process.env.ASKDEPTH_CONNECTOR_PREVIOUS_SECRET ||
+    'c0nn3ct0r_s3cr3t_d3m0_sh0p_2026'
+  ).trim();
   const cacheKey = `${secret}:${previousSecret ?? ''}`;
 
   if (
