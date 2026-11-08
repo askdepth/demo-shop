@@ -5,6 +5,7 @@ import {
   normalizeEnvironment,
   normalizeTelemetryEndpoint,
 } from '@/lib/askdepth-config';
+import { ensureDemoDbSchema } from '@/lib/ensure-demo-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,9 @@ export async function GET() {
   // Resolve actual seeded emails for the 5 hero personas (supports DEMO_INBOX_EMAIL +tag aliases)
   let dbUsersById = new Map<string, { email: string; name: string | null }>();
   let dbError: string | null = null;
+  let dbInfo: { database?: string; user?: string } = {};
   try {
+    await ensureDemoDbSchema();
     const rows = await prisma.user.findMany({
       where: {
         id: { in: HERO_PERSONAS.map(p => p.id) },
@@ -36,6 +39,11 @@ export async function GET() {
       },
     });
     dbUsersById = new Map(rows.map(r => [r.id, r]));
+
+    const raw = await prisma.$queryRaw<Array<{ current_database: string; current_user: string }>>`SELECT current_database(), current_user;`;
+    if (raw?.[0]) {
+      dbInfo = { database: raw[0].current_database, user: raw[0].current_user };
+    }
   } catch (err) {
     dbError = err instanceof Error ? err.message : String(err);
   }
@@ -61,6 +69,7 @@ export async function GET() {
     database: {
       connected: dbUsersById.size > 0,
       heroUsersFound: dbUsersById.size,
+      serverInfo: dbInfo,
       error: dbError,
     },
     sdk: {

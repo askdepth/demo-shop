@@ -5,6 +5,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import prisma from './prisma';
 import { getServerSession } from 'next-auth';
+import { ensureDemoDbSchema } from './ensure-demo-db';
 
 // Extend NextAuth types
 declare module 'next-auth' {
@@ -50,6 +51,10 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        await ensureDemoDbSchema().catch(err => {
+          console.warn('[auth.authorize] ensureDemoDbSchema warning:', err);
+        });
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
