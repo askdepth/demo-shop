@@ -65,9 +65,9 @@ async function seedAskdepthCohorts() {
   for (const persona of HERO_PERSONAS) {
     const finalEmail = resolveHeroEmail(persona, inboxBase);
     await prisma.user.upsert({
-      where: { id: persona.id },
+      where: { email: finalEmail },
       update: {
-        email: finalEmail,
+        id: persona.id,
         name: persona.name,
         role: UserRole.USER,
         segment: persona.segment,
@@ -78,6 +78,7 @@ async function seedAskdepthCohorts() {
         country: persona.country,
         marketingOptIn: persona.marketingOptIn,
         isActive: true,
+        internalNotes: `HERO:${persona.aliasKey.toUpperCase()}`,
       },
       create: {
         id: persona.id,
