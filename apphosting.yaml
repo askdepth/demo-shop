@@ -46,10 +46,10 @@ env:
     value: "true"
     availability: [RUNTIME]
   - variable: NEXT_PUBLIC_ASKDEPTH_ENDPOINT
-    value: https://in.askdepth.com/v1/telemetry
+    value: https://analytics-ingest-o2gbhvtrua-ew.a.run.app/v1/telemetry
     availability: [BUILD, RUNTIME]
   - variable: ASKDEPTH_INGEST_URL
-    value: https://in.askdepth.com
+    value: https://analytics-ingest-o2gbhvtrua-ew.a.run.app
     availability: [BUILD]
   - variable: NEXT_PUBLIC_ASKDEPTH_ENVIRONMENT
     value: production

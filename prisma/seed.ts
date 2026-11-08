@@ -69,6 +69,7 @@ async function seedAskdepthCohorts() {
       update: {
         id: persona.id,
         name: persona.name,
+        password: customerPasswordHash,
         role: UserRole.USER,
         segment: persona.segment,
         loyaltyTier: persona.loyaltyTier,

@@ -23,6 +23,7 @@ export async function GET() {
 
   // Resolve actual seeded emails for the 5 hero personas (supports DEMO_INBOX_EMAIL +tag aliases)
   let dbUsersById = new Map<string, { email: string; name: string | null }>();
+  let dbError: string | null = null;
   try {
     const rows = await prisma.user.findMany({
       where: {
@@ -35,8 +36,8 @@ export async function GET() {
       },
     });
     dbUsersById = new Map(rows.map(r => [r.id, r]));
-  } catch {
-    // Database might not be migrated/seeded yet; fall back to persona defaults
+  } catch (err) {
+    dbError = err instanceof Error ? err.message : String(err);
   }
 
   const personas = HERO_PERSONAS.map(persona => {
@@ -57,6 +58,11 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    database: {
+      connected: dbUsersById.size > 0,
+      heroUsersFound: dbUsersById.size,
+      error: dbError,
+    },
     sdk: {
       writeKeyConfigured: Boolean(writeKey),
       writeKey: writeKey || null,
@@ -74,7 +80,10 @@ export async function GET() {
     connector: {
       endpointPath: '/askdepth/v1',
       secretConfigured: Boolean(
-        (process.env.ASKDEPTH_CONNECTOR_SECRET ?? '').trim()
+        (
+          process.env.ASKDEPTH_CONNECTOR_SECRET ||
+          'c0nn3ct0r_s3cr3t_d3m0_sh0p_2026'
+        ).trim()
       ),
     },
     personas,

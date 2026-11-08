@@ -84,6 +84,7 @@ export function DemoLabDrawer() {
   );
   const [statusData, setStatusData] = useState<StatusPayload | null>(null);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
+  const [personaError, setPersonaError] = useState<string | null>(null);
   const [waveScenario, setWaveScenario] =
     useState<DemoScenarioKey>('expressShipping503');
   const [waveBusy, setWaveBusy] = useState(false);
@@ -146,6 +147,7 @@ export function DemoLabDrawer() {
 
   const handleSwitchPersona = async (persona: (typeof personas)[number]) => {
     setSwitchingId(persona.id);
+    setPersonaError(null);
     try {
       if (session?.user) {
         await signOut({ redirect: false });
@@ -162,7 +164,15 @@ export function DemoLabDrawer() {
         );
         router.push(persona.recommendedPath);
         router.refresh();
+      } else {
+        setPersonaError(
+          `Could not sign in as ${persona.name} (${persona.email}). Ensure database is connected and seeded via "npm run db:seed". [${res.error}]`
+        );
       }
+    } catch (err) {
+      setPersonaError(
+        err instanceof Error ? err.message : 'Login request failed'
+      );
     } finally {
       setSwitchingId(null);
     }
@@ -492,6 +502,16 @@ export function DemoLabDrawer() {
 
             {tab === 'personas' && (
               <div className="space-y-2.5">
+                {personaError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-rose-500/40 bg-rose-950/40 p-2.5 text-[11px] text-rose-200">
+                    <AlertCircle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-rose-400"
+                      aria-hidden="true"
+                    />
+                    <span>{personaError}</span>
+                  </div>
+                )}
+
                 <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-[11px] text-slate-300">
                   <div className="flex items-center justify-between">
                     <span>
@@ -518,13 +538,16 @@ export function DemoLabDrawer() {
 
                 {personas.map(persona => {
                   const isCurrent = session?.user?.id === persona.id;
+                  const isSeeded = persona.seededInDb !== false;
                   return (
                     <div
                       key={persona.id}
                       className={`rounded-xl border p-3 ${
                         isCurrent
                           ? 'border-emerald-500/50 bg-emerald-950/20'
-                          : 'border-slate-800 bg-slate-900/50'
+                          : isSeeded
+                            ? 'border-slate-800 bg-slate-900/50'
+                            : 'border-amber-500/30 bg-amber-950/10'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -536,6 +559,14 @@ export function DemoLabDrawer() {
                             <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] text-indigo-300">
                               {persona.badgeLabel}
                             </span>
+                            {!isSeeded && (
+                              <span
+                                className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300"
+                                title="Not found in database. Run npm run db:seed"
+                              >
+                                Not in DB
+                              </span>
+                            )}
                           </div>
                           <p className="mt-0.5 font-mono text-[10px] text-slate-400">
                             id={persona.id} · {persona.email}

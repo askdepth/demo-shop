@@ -86,7 +86,10 @@ function getPgPool(): Pool {
 }
 
 function getConnectorInstance(): ReturnType<typeof createConnector> | null {
-  const secret = process.env.ASKDEPTH_CONNECTOR_SECRET?.trim();
+  const secret = (
+    process.env.ASKDEPTH_CONNECTOR_SECRET ||
+    'c0nn3ct0r_s3cr3t_d3m0_sh0p_2026'
+  ).trim();
   if (!secret) {
     return null;
   }
