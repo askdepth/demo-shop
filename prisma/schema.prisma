@@ -33,19 +33,30 @@ enum ProductStatus {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  image         String?
-  password      String?
-  role          UserRole  @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  image             String?
+  password          String?
+  role              UserRole  @default(USER)
+  segment           String    @default("new_customer")
+  isActive          Boolean   @default(true) @map("is_active")
+  marketingOptIn    Boolean   @default(true) @map("marketing_opt_in")
+  loyaltyTier       String    @default("standard") @map("loyalty_tier")
+  preferredCategory String    @default("electronics") @map("preferred_category")
+  deviceType        String    @default("desktop") @map("device_type")
+  hasAbandonedCart  Boolean   @default(false) @map("has_abandoned_cart")
+  country           String    @default("US")
+  internalNotes     String?   @map("internal_notes")
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
 
   // Relations
   orders   Order[]
   cart     Cart?
 
+  @@index([segment])
+  @@index([createdAt])
   @@map("users")
 }
 

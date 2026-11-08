@@ -7,10 +7,15 @@ import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { CartProvider } from '@/components/cart-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { DemoLabDrawer } from '@/components/demo/demo-lab-drawer';
 import { getAppUrl } from '@/lib/app-url';
 import { DemoBanner } from '@/components/store/demo-banner';
 import { SITE_NAME } from '@/lib/site';
 import { getCategoryTree } from '@/server/queries/catalog';
+import {
+  normalizeEnvironment,
+  normalizeTelemetryEndpoint,
+} from '@/lib/askdepth-config';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -60,10 +65,24 @@ export default async function RootLayout({
   const tree = await getCategoryTree().catch(() => []);
   const categories = tree.map(c => ({ name: c.name, slug: c.slug }));
 
+  // Pass runtime env down from dynamic Server Component so App Hosting RUNTIME secrets
+  // activate AskDepth SDK even without baking NEXT_PUBLIC_* into the Docker layer.
+  const initialAskdepthConfig = {
+    writeKey: process.env.NEXT_PUBLIC_ASKDEPTH_WRITE_KEY || '',
+    endpoint: normalizeTelemetryEndpoint(
+      process.env.NEXT_PUBLIC_ASKDEPTH_ENDPOINT ||
+        process.env.ASKDEPTH_INGEST_URL
+    ),
+    buildId: process.env.NEXT_PUBLIC_ASKDEPTH_BUILD_ID || 'demo-shop-v1',
+    environment: normalizeEnvironment(
+      process.env.NEXT_PUBLIC_ASKDEPTH_ENVIRONMENT
+    ),
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
+        <Providers initialAskdepthConfig={initialAskdepthConfig}>
           <CartProvider>
             <div className="flex min-h-screen flex-col">
               <DemoBanner />
@@ -72,6 +91,7 @@ export default async function RootLayout({
               <Footer siteName={SITE_NAME} categories={categories} />
             </div>
             <Toaster />
+            <DemoLabDrawer />
           </CartProvider>
         </Providers>
       </body>

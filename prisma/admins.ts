@@ -25,12 +25,19 @@ export async function ensureAdmins(prisma: PrismaClient) {
   for (const email of getAdminEmails()) {
     const admin = await prisma.user.upsert({
       where: { email },
-      update: { password: hashed, role: UserRole.ADMIN },
+      update: {
+        password: hashed,
+        role: UserRole.ADMIN,
+        marketingOptIn: false,
+        segment: 'internal_admin',
+      },
       create: {
         email,
         name: email.split('@')[0],
         role: UserRole.ADMIN,
         password: hashed,
+        marketingOptIn: false,
+        segment: 'internal_admin',
       },
     });
     console.log(`👤 Admin ready: ${admin.email}`);

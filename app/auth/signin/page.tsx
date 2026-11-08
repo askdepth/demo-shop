@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { SignInForm } from '@/components/auth/signin-form';
+import { DemoPersonaQuickLogin } from '@/components/auth/demo-persona-quick-login';
 
 export const metadata: Metadata = {
   title: 'Sign In',
@@ -50,6 +51,9 @@ export default async function SignInPage({
           </p>
         </CardFooter>
       </Card>
+      <Suspense fallback={null}>
+        <DemoPersonaQuickLogin />
+      </Suspense>
     </div>
   );
 }

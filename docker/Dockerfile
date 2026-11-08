@@ -18,6 +18,7 @@ WORKDIR /app
 # on peer conflicts (cmdk still declares a react@18 peer) that the lockfile
 # was resolved under.
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
+COPY prisma ./prisma/
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \

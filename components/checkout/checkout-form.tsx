@@ -1,9 +1,11 @@
 // components/checkout/checkout-form.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Lock, CreditCard, AlertCircle, Activity } from 'lucide-react';
+import { useAskdepth } from '@askdepth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatCurrency } from '@/lib/utils';
+import { PromoCodeBox } from '@/components/checkout/promo-code-box';
+import { useDemoScenarios } from '@/components/demo/demo-scenario-context';
 
 interface CartItem {
   id: string;
@@ -65,6 +69,9 @@ export function CheckoutForm({
   savedAddress,
   shippingMethods,
 }: CheckoutFormProps) {
+  const askdepth = useAskdepth();
+  const { scenarios, logDemoSignal } = useDemoScenarios();
+
   const [addressMode, setAddressMode] = useState<'saved' | 'form'>(
     isLoggedIn && savedAddress ? 'saved' : 'form'
   );
@@ -83,11 +90,85 @@ export function CheckoutForm({
   const [shippingMethod, setShippingMethod] = useState(
     shippingMethods[0]?.id ?? 'standard'
   );
+  const [shippingQuoteNote, setShippingQuoteNote] = useState<string | null>(
+    null
+  );
+  const [shippingQuoteError, setShippingQuoteError] = useState<string | null>(
+    null
+  );
+  const [isQuotingShipping, setIsQuotingShipping] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [cardLast4, setCardLast4] = useState('4242 4242 4242 4242');
+  const [cardExpiry, setCardExpiry] = useState('08/29');
+  const [cardCvc, setCardCvc] = useState('842');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const experimentVariant = scenarios.steppedCheckoutRegression
+    ? 'stepped_v2'
+    : 'one_page_v1';
+
+  useEffect(() => {
+    if (cart.items.length === 0) return;
+    const startedAt = performance.now();
+    const timer = window.setTimeout(
+      () => {
+        const durationMs = Math.round(performance.now() - startedAt);
+        askdepth.track('checkout_started', {
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+          count: cart.itemCount,
+          duration_ms: durationMs,
+        });
+      },
+      scenarios.steppedCheckoutRegression ? 1200 : 80
+    );
+    return () => window.clearTimeout(timer);
+  }, [cart.items.length, cart.itemCount, scenarios.steppedCheckoutRegression, askdepth]);
+
   const useSavedAddress = () => setAddressMode('saved');
   const editAddress = () => setAddressMode('form');
+
+  const handleSelectShippingMethod = async (methodId: string) => {
+    setShippingMethod(methodId);
+    setShippingQuoteError(null);
+    setShippingQuoteNote(null);
+    setIsQuotingShipping(true);
+
+    try {
+      const res = await fetch('/api/shipping/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(scenarios.expressShipping503 ? { 'x-demo-express-503': '1' } : {}),
+        },
+        body: JSON.stringify({
+          shippingMethod: methodId,
+          postalCode: zip || savedAddress?.shippingZip || '94107',
+          state: state || savedAddress?.shippingState || 'CA',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        const errText =
+          data.error || `Carrier rate service failed (HTTP ${res.status}).`;
+        setShippingQuoteError(errText);
+        logDemoSignal(
+          'ERROR_CLICK',
+          `POST /api/shipping/quote -> HTTP ${res.status} (${methodId})`
+        );
+        return;
+      }
+      if (data.quote?.carrier) {
+        setShippingQuoteNote(
+          `${data.quote.carrier} · ${data.quote.estimatedDays}`
+        );
+      }
+    } catch {
+      setShippingQuoteError('Unable to verify live carrier rate.');
+    } finally {
+      setIsQuotingShipping(false);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -165,10 +246,21 @@ export function CheckoutForm({
 
       const data = await response.json();
 
-      if (!data.success) {
+      if (!response.ok || !data.success) {
+        if (response.status >= 500) {
+          logDemoSignal(
+            'ERROR_CLICK',
+            `POST /api/checkout -> HTTP ${response.status} (${shippingMethod})`
+          );
+        }
         setError(data.error || 'Failed to start checkout.');
         return;
       }
+
+      askdepth.track('checkout_completed', {
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+        count: cart.itemCount,
+      });
 
       window.location.assign(data.url);
     } catch {
@@ -192,11 +284,29 @@ export function CheckoutForm({
     );
   }
 
+  const selectedShippingObj = shippingMethods.find(
+    m => m.id === shippingMethod
+  );
+  const shippingCost = selectedShippingObj?.price ?? 0;
+  const discountedTotal = Math.max(0, cart.total - promoDiscount);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-gray-900">
-        Checkout
-      </h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          Checkout
+        </h1>
+        {scenarios.steppedCheckoutRegression && (
+          <span
+            data-askdepth-block=""
+            className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800"
+          >
+            <Activity className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+            Experiment Cohort: <code className="font-mono">{experimentVariant}</code>{' '}
+            (Simulated Latency Active)
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -206,14 +316,22 @@ export function CheckoutForm({
             </Alert>
           )}
 
+          {/* Shipping Information (Zero-PII Replay Masked via data-askdepth-mask) */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Shipping Information</CardTitle>
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                PII Replay Masked
+              </span>
             </CardHeader>
             <CardContent className="space-y-4">
               {addressMode === 'saved' && savedAddress ? (
                 <div className="space-y-4" data-testid="saved-address">
-                  <div className="rounded-lg border p-4 text-sm">
+                  <div
+                    data-askdepth-mask=""
+                    className="rounded-lg border p-4 text-sm"
+                  >
                     <p className="font-medium">{savedAddress.shippingName}</p>
                     <p>{savedAddress.shippingAddress}</p>
                     <p>
@@ -240,7 +358,10 @@ export function CheckoutForm({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div
+                  data-askdepth-mask=""
+                  className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                >
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="checkout-email">Email</Label>
                     <Input
@@ -340,15 +461,25 @@ export function CheckoutForm({
             </CardContent>
           </Card>
 
+          {/* Shipping Method (Scenario 3: Express 503 Network Error Correlation) */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Shipping Method</CardTitle>
+              {isQuotingShipping && (
+                <span className="text-xs text-muted-foreground">
+                  Checking live carrier rates...
+                </span>
+              )}
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-3">
               {shippingMethods.map(method => (
                 <label
                   key={method.id}
-                  className="flex cursor-pointer items-center justify-between rounded-lg border p-3 text-sm"
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 text-sm transition ${
+                    shippingMethod === method.id
+                      ? 'border-slate-900 bg-slate-50/70'
+                      : 'hover:border-slate-300'
+                  }`}
                 >
                   <span className="flex items-center gap-3">
                     <input
@@ -356,7 +487,7 @@ export function CheckoutForm({
                       name="shippingMethod"
                       value={method.id}
                       checked={shippingMethod === method.id}
-                      onChange={() => setShippingMethod(method.id)}
+                      onChange={() => void handleSelectShippingMethod(method.id)}
                       data-testid={`shipping-method-${method.id}`}
                     />
                     <span>
@@ -371,6 +502,83 @@ export function CheckoutForm({
                   </span>
                 </label>
               ))}
+
+              {shippingQuoteNote && !shippingQuoteError && (
+                <p className="text-xs font-medium text-emerald-700">
+                  Verified carrier dispatch: {shippingQuoteNote}
+                </p>
+              )}
+
+              {shippingQuoteError && (
+                <div
+                  role="alert"
+                  data-testid="shipping-quote-error"
+                  className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"
+                >
+                  <AlertCircle
+                    className="mt-0.5 h-4 w-4 shrink-0 text-rose-600"
+                    aria-hidden="true"
+                  />
+                  <span>{shippingQuoteError}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payment Details (Scenario 6: Zero-PII Block in Session Replay) */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-slate-600" aria-hidden="true" />
+                Payment Method (Demo Sandbox)
+              </CardTitle>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                data-askdepth-block
+              </span>
+            </CardHeader>
+            <CardContent>
+              <div
+                data-askdepth-block=""
+                className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:grid-cols-3"
+              >
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label htmlFor="demo-card-number">Card number (test)</Label>
+                  <Input
+                    id="demo-card-number"
+                    value={cardLast4}
+                    onChange={e => setCardLast4(e.target.value)}
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="demo-card-expiry">Expiration</Label>
+                  <Input
+                    id="demo-card-expiry"
+                    value={cardExpiry}
+                    onChange={e => setCardExpiry(e.target.value)}
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="demo-card-cvc">Security code</Label>
+                  <Input
+                    id="demo-card-cvc"
+                    value={cardCvc}
+                    onChange={e => setCardCvc(e.target.value)}
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground sm:col-span-3">
+                  This payment container carries{' '}
+                  <code className="font-mono">data-askdepth-block</code>: DOM
+                  nodes inside are never serialized or transmitted in Session
+                  Replays.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -415,6 +623,12 @@ export function CheckoutForm({
                 ))}
               </div>
 
+              <PromoCodeBox
+                subtotal={cart.total}
+                onDiscountChange={amt => setPromoDiscount(amt)}
+                surface="checkout"
+              />
+
               <Separator />
 
               <div
@@ -424,8 +638,23 @@ export function CheckoutForm({
                 <span>Subtotal ({cart.itemCount} items)</span>
                 <span>{formatCurrency(cart.total)}</span>
               </div>
+
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-sm font-medium text-emerald-700">
+                  <span>Promo Discount</span>
+                  <span>-{formatCurrency(promoDiscount)}</span>
+                </div>
+              )}
+
+              {shippingCost > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Shipping ({selectedShippingObj?.name})</span>
+                  <span>{formatCurrency(shippingCost)}</span>
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground">
-                Shipping and tax are calculated on the next step.
+                Final tax is confirmed upon order placement.
               </p>
 
               <Separator />
@@ -435,7 +664,7 @@ export function CheckoutForm({
                 data-testid="checkout-total"
               >
                 <span>Estimated total</span>
-                <span>{formatCurrency(cart.total)}</span>
+                <span>{formatCurrency(discountedTotal + shippingCost)}</span>
               </div>
 
               <Button

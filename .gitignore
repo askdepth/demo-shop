@@ -134,3 +134,7 @@ CLAUDE.md
 
 # Serena MCP
 .serena/
+
+# AskDepth generated component maps
+.askdepth/
+

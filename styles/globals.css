@@ -387,3 +387,13 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Modern native <dialog> scroll containment */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overscroll-behavior: contain;
+}
+

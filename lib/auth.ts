@@ -14,6 +14,8 @@ declare module 'next-auth' {
       email: string;
       name: string | null;
       role: string;
+      segment?: string;
+      loyaltyTier?: string;
       image?: string | null;
     };
   }
@@ -23,6 +25,8 @@ declare module 'next-auth' {
     email: string;
     name: string | null;
     role: string;
+    segment?: string;
+    loyaltyTier?: string;
     image?: string | null;
   }
 }
@@ -31,6 +35,8 @@ declare module 'next-auth/jwt' {
   interface JWT {
     sub?: string;
     role?: string;
+    segment?: string;
+    loyaltyTier?: string;
   }
 }
 
@@ -62,6 +68,8 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          segment: user.segment,
+          loyaltyTier: user.loyaltyTier,
         };
       },
     }),
@@ -71,7 +79,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
-        token.role = (user as any).role || 'USER';
+        token.role = user.role || 'USER';
+        token.segment = user.segment;
+        token.loyaltyTier = user.loyaltyTier;
       }
       return token;
     },
@@ -79,6 +89,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.sub!;
         session.user.role = token.role as string;
+        session.user.segment = token.segment;
+        session.user.loyaltyTier = token.loyaltyTier;
       }
       return session;
     },

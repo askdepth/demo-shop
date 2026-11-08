@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatPrice } from '@/lib/utils';
 import { getCart, updateCartItem, removeFromCart } from '@/server/actions/cart';
 import { useToast } from '@/components/ui/use-toast';
+import { PromoCodeBox } from '@/components/checkout/promo-code-box';
 
 interface CartItem {
   id: string;
@@ -29,6 +30,7 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -190,18 +192,19 @@ export default function CartPage() {
                   </p>
                 </div>
 
-                {/* Quantity Controls */}
-                <div className="flex items-center space-x-2">
+                {/* Quantity Controls (allow rapid clicks without RAGE_CLICK false positives) */}
+                <div className="flex items-center space-x-2" data-askdepth-allow-rapid="">
                   <Button
                     variant="outline"
                     size="sm"
                     data-testid="quantity-decrease"
+                    data-askdepth-allow-rapid=""
                     onClick={() =>
                       handleUpdateQuantity(item.id, item.quantity - 1)
                     }
                     disabled={item.quantity <= 1 || isUpdating === item.id}
                   >
-                    <Minus className="h-4 w-4" />
+                    <Minus className="h-4 w-4" aria-hidden="true" />
                   </Button>
                   <input
                     type="number"
@@ -215,12 +218,13 @@ export default function CartPage() {
                     variant="outline"
                     size="sm"
                     data-testid="quantity-increase"
+                    data-askdepth-allow-rapid=""
                     onClick={() =>
                       handleUpdateQuantity(item.id, item.quantity + 1)
                     }
                     disabled={isUpdating === item.id}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
 
@@ -287,6 +291,13 @@ export default function CartPage() {
                 <span>{formatPrice(totalAmount * 0.08)}</span>
               </div>
 
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-sm font-medium text-emerald-700">
+                  <span>Promo Discount</span>
+                  <span>-{formatPrice(promoDiscount)}</span>
+                </div>
+              )}
+
               <Separator />
 
               <div
@@ -296,12 +307,24 @@ export default function CartPage() {
                 <span>Total</span>
                 <span>
                   {formatPrice(
-                    totalAmount +
-                      (totalAmount >= 100 ? 0 : 15) +
-                      totalAmount * 0.08
+                    Math.max(
+                      0,
+                      totalAmount -
+                        promoDiscount +
+                        (totalAmount >= 100 ? 0 : 15) +
+                        totalAmount * 0.08
+                    )
                   )}
                 </span>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <PromoCodeBox
+                subtotal={totalAmount}
+                onDiscountChange={amt => setPromoDiscount(amt)}
+                surface="cart"
+              />
             </div>
 
             {totalAmount < 100 && (

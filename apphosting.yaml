@@ -19,6 +19,18 @@ env:
     secret: NEXTAUTH_SECRET
     availability: [RUNTIME]
 
+  # --- AskDepth Secrets (uncomment once created during manual onboarding smoke test) ---
+  # Run `firebase apphosting:secrets:set <NAME>` and `firebase apphosting:secrets:grantaccess <NAME> --backend <BACKEND_ID>`
+  # - variable: NEXT_PUBLIC_ASKDEPTH_WRITE_KEY
+  #   secret: NEXT_PUBLIC_ASKDEPTH_WRITE_KEY
+  #   availability: [BUILD, RUNTIME]
+  # - variable: ASKDEPTH_DEPLOY_TOKEN
+  #   secret: ASKDEPTH_DEPLOY_TOKEN
+  #   availability: [BUILD]
+  # - variable: ASKDEPTH_CONNECTOR_SECRET
+  #   secret: ASKDEPTH_CONNECTOR_SECRET
+  #   availability: [RUNTIME]
+
   # --- Plain values ---
   # Public URL of the app (custom domain).
   - variable: NEXTAUTH_URL
@@ -33,3 +45,15 @@ env:
   - variable: FORCE_HTTPS
     value: "true"
     availability: [RUNTIME]
+  - variable: NEXT_PUBLIC_ASKDEPTH_ENDPOINT
+    value: https://in.askdepth.com/v1/telemetry
+    availability: [BUILD, RUNTIME]
+  - variable: ASKDEPTH_INGEST_URL
+    value: https://in.askdepth.com
+    availability: [BUILD]
+  - variable: NEXT_PUBLIC_ASKDEPTH_ENVIRONMENT
+    value: production
+    availability: [BUILD, RUNTIME]
+  - variable: ASKDEPTH_REPOSITORY
+    value: askdepth/demo-shop
+    availability: [BUILD, RUNTIME]

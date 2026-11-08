@@ -17,6 +17,12 @@ const authRoutes = ['/auth/signin', '/auth/signup'];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Pass AskDepth Audience Connector HMAC-authenticated wire calls straight through
+  // with zero header/body mutation or session overhead.
+  if (pathname.startsWith('/askdepth/v1')) {
+    return NextResponse.next();
+  }
+
   // Get the token from the request. Don't pass `cookieName`: next-auth only
   // uses the `__Secure-` cookie prefix when NEXTAUTH_URL is https (it's
   // independent of NODE_ENV), and getToken's default applies that same rule.
@@ -117,7 +123,29 @@ export async function proxy(request: NextRequest) {
   // Add security headers
   const response = NextResponse.next();
 
-  // Content Security Policy
+  // Content Security Policy (allow AskDepth telemetry & session replay uploads)
+  const extraConnectOrigins = new Set<string>([
+    'https://*.askdepth.com',
+    'https://*.askdepth.io',
+    'https://*.run.app',
+  ]);
+  for (const rawUrl of [
+    process.env.NEXT_PUBLIC_ASKDEPTH_ENDPOINT,
+    process.env.ASKDEPTH_INGEST_URL,
+  ]) {
+    if (rawUrl) {
+      try {
+        extraConnectOrigins.add(new URL(rawUrl).origin);
+      } catch {
+        // ignore invalid URL env
+      }
+    }
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    extraConnectOrigins.add('http://localhost:*');
+    extraConnectOrigins.add('http://127.0.0.1:*');
+  }
+
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-eval' 'unsafe-inline';
@@ -125,7 +153,7 @@ export async function proxy(request: NextRequest) {
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' blob: data: https:;
     media-src 'self' blob: data:;
-    connect-src 'self';
+    connect-src 'self' ${Array.from(extraConnectOrigins).join(' ')};
     worker-src 'self' blob:;
   `
     .replace(/\s{2,}/g, ' ')

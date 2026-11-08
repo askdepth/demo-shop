@@ -13,6 +13,8 @@ import { RatingStars } from '@/components/store/rating-stars';
 import { RecentlyViewed, TrackView } from '@/components/store/recently-viewed';
 import { ReviewsSection } from '@/components/store/reviews-section';
 import { Shelf } from '@/components/store/shelf';
+import { ProductInteractiveTools } from '@/components/product-interactive-tools';
+import { BundleConfigurator } from '@/components/bundle-configurator';
 import { getCurrentSession } from '@/lib/auth';
 import { FREE_SHIPPING_THRESHOLD, SITE_NAME, deliveryDate } from '@/lib/site';
 import { formatCurrency } from '@/lib/utils';
@@ -131,47 +133,64 @@ export default async function ProductPage(props: ProductPageProps) {
             {product.brand && (
               <Link
                 href={`/search?brand=${encodeURIComponent(product.brand)}`}
-                className="text-sm text-sky-700 hover:text-orange-700 hover:underline"
+                className="text-xs text-sky-700 hover:underline"
               >
-                Visit the {product.brand} store
+                Brand: {product.brand}
               </Link>
             )}
-            {product.reviewCount > 0 && (
-              <a href="#reviews" className="mt-1 flex items-center gap-2 text-sm" data-testid="rating-summary">
-                <span className="font-medium">{product.avgRating.toFixed(1)}</span>
-                <RatingStars rating={product.avgRating} size="md" />
-                <span className="text-sky-700 hover:text-orange-700 hover:underline">
-                  {product.reviewCount.toLocaleString()} ratings
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <RatingStars rating={product.avgRating} />
+              {product.reviewCount > 0 && (
+                <>
+                  <span className="text-gray-400">|</span>
+                  <a href="#reviews" className="text-xs text-sky-700 hover:underline">
+                    {product.reviewCount} customer reviews
+                  </a>
+                </>
+              )}
+              {isBestSeller && (
+                <span className="rounded bg-orange-700 px-2 py-0.5 text-xs font-bold text-white">
+                  #1 Best Seller
                 </span>
-              </a>
-            )}
-            {isBestSeller && (
-              <span className="mt-2 inline-block rounded-sm bg-orange-500 px-2 py-0.5 text-xs font-semibold text-white">
-                Best Seller
-              </span>
-            )}
-
-            <hr className="my-3" />
-
-            <div className="flex flex-wrap items-baseline gap-3">
-              {onSale && <span className="text-2xl font-light text-red-700">-{savePct}%</span>}
-              <Price value={price} size="lg" />
+              )}
             </div>
-            {onSale && (
-              <p className="text-sm text-muted-foreground">
-                List Price: <span className="line-through">{formatCurrency(comparePrice!)}</span>
-              </p>
-            )}
-            <p className="mt-1 text-sm text-gray-700">
-              {freeShipping ? 'FREE delivery' : `$5.99 delivery`} &amp; free 30-day returns.
-            </p>
 
-            {product.bullets.length > 0 && (
+            <hr className="my-3 border-gray-200" />
+
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-2">
+                {onSale && <span className="text-2xl font-light text-red-700">-{savePct}%</span>}
+                <Price value={price} size="lg" />
+              </div>
+              {comparePrice && (
+                <p className="text-xs text-gray-500">
+                  Typical price: <span className="line-through">{formatCurrency(comparePrice)}</span>
+                </p>
+              )}
+            </div>
+
+            {/* AskDepth interactive scenario: Protection Bundle Configurator */}
+            <div className="mt-4">
+              <BundleConfigurator productName={product.name} basePrice={price} />
+            </div>
+
+            {/* AskDepth interactive scenario: Size Guide (Dead Click) and Wishlist/Share tools */}
+            <div className="mt-4">
+              <ProductInteractiveTools
+                productName={product.name}
+                categorySlug={product.category?.slug}
+                sku={product.sku}
+              />
+            </div>
+
+            {product.bullets && product.bullets.length > 0 && (
               <>
-                <h2 className="mt-5 text-base font-bold">About this item</h2>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm" data-testid="product-bullets">
-                  {product.bullets.map(b => (
-                    <li key={b}>{b}</li>
+                <hr className="my-4 border-gray-200" />
+                <h2 className="text-sm font-bold text-gray-900">About this item</h2>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                  {product.bullets.map((b, i) => (
+                    <li key={i}>{b}</li>
                   ))}
                 </ul>
               </>
